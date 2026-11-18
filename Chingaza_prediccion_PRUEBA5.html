@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Chingaza — modelo 3D del nivel del agua</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#eef5fa;--muted:#9db3c4;--panel:rgba(8,22,36,.78);--line:rgba(160,200,230,.18);--accent:#38bdf8;--ok:#34d399;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0b1a26;color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  canvas{position:fixed;inset:0;display:block;width:100%;height:100%}
+  #vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(4,12,20,.42) 100%)}
+  .card{position:fixed;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px}
+  #info{left:22px;top:20px;padding:18px 20px;width:300px}
+  #info .t{font:700 13px/1 'Space Grotesk',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+  #date{font:700 26px/1.1 'Space Grotesk',sans-serif;margin-top:12px}
+  #lvl{font:700 56px/1 'Space Grotesk',sans-serif;margin-top:6px;font-variant-numeric:tabular-nums}
+  #lvl small{font-size:24px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted)}
+  .row b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  #status{margin-top:12px;padding:8px 10px;border-radius:10px;font:600 13px/1.3 Inter,sans-serif}
+  #event{margin-top:10px;font-size:13px;color:#ffd58a;min-height:18px}
+  #scen{margin-top:10px;font-size:13px;color:var(--muted);display:none}
+  #scen b{color:var(--ink)}
+  #lvlcap{font:600 12px Inter,sans-serif;color:#fdba74;margin-top:10px;display:none}
+  body.scen #lvlcap,body.vel #lvlcap{display:block}
+  body.scen #lvl{color:#fdba74;margin-top:2px}
+  body.vel #lvlcap{color:var(--muted)}
+  body.pred #lvlcap{display:block;color:#f0abfc}
+  body.pred #lvl{color:#f0abfc;margin-top:2px}
+  body.vel #lvl{margin-top:2px}
+  body.vel #lvl small{font-size:22px}
+  body.modq #lvlcap{display:block;color:#93c5fd}
+  body.modq #lvl{color:#93c5fd;margin-top:2px}
+  #qres{margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.3);display:none;font-size:12.5px;font-variant-numeric:tabular-nums}
+  #qres.show{display:block}
+  #qres .rh{font:600 10.5px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#7dd3fc;margin-bottom:6px}
+  #qres .rr{display:flex;justify-content:space-between;gap:10px;line-height:1.6;color:var(--muted)}
+  #qres .rr b{color:var(--ink);font-weight:600;text-align:right}
+  #qres .rr.err{margin-top:2px;padding-top:3px;border-top:1px solid var(--line)}
+  #qres .rr.err b{color:#fcd34d}
+  #qres .rn{margin-top:5px;color:var(--muted);font-size:11.5px;line-height:1.45}
+  #qres table{width:100%;border-collapse:collapse;font-size:12px}
+  #qres th{font-weight:500;color:var(--muted);text-align:right;padding:2px 0 3px 6px}
+  #qres td{text-align:right;padding:2px 0 2px 6px;color:var(--ink);font-weight:600}
+  #qres th:first-child,#qres td:first-child{text-align:left;padding-left:0;color:var(--muted);font-weight:500}
+  #qres td.e{color:#fcd34d}
+  body.qres #note,body.qres #rowCap{display:none}
+  #mini.apretado{display:none!important}
+  #gaugeWrap{right:22px;top:20px;bottom:150px;width:86px;padding:14px 10px}
+  #gauge{position:absolute;left:46px;right:14px;top:30px;bottom:30px;border-radius:8px;background:rgba(255,255,255,.06);overflow:visible}
+  #gfill{position:absolute;left:0;right:0;bottom:0;border-radius:8px;background:linear-gradient(#5fd3ff,#1477b8)}
+  #gscen{position:absolute;left:-6px;right:-6px;height:2px;background:var(--bad);display:none}
+  .mk{position:absolute;left:-10px;right:-10px;height:0;border-top:2px dashed}
+  .mk span{position:absolute;right:calc(100% + 4px);top:-8px;font:600 11px 'Space Grotesk';white-space:nowrap}
+  #gaugeWrap .cap{position:absolute;top:8px;left:0;right:0;text-align:center;font:600 10px Inter;color:var(--muted);letter-spacing:.1em}
+  #bar{left:22px;right:22px;bottom:18px;padding:14px 18px 12px}
+  #tl{position:relative;height:40px;margin:0 6px}
+  #track{position:absolute;left:0;right:0;top:18px;height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+  #prog{position:absolute;left:0;top:18px;height:4px;border-radius:2px;background:var(--accent)}
+  #rat{position:absolute;top:12px;height:16px;border-radius:4px;background:rgba(248,113,113,.14);border:1px dashed rgba(248,113,113,.4)}
+  #predb{position:absolute;top:12px;height:16px;border-radius:4px;background:rgba(232,121,249,.14);border:1px dashed rgba(232,121,249,.5);display:none}
+  #predb span{position:absolute;top:-14px;left:4px;font-size:10px;color:#f5d0fe;white-space:nowrap}
+  #rat span{position:absolute;top:-14px;left:4px;font-size:10px;color:#f8a5a5;white-space:nowrap}
+  .tick{position:absolute;top:14px;width:2px;height:12px;background:#cfe6f5;opacity:.8;transform:translateX(-1px)}
+  .tick.v{background:#ffd58a}
+  #knob{position:absolute;top:10px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(56,189,248,.35);transform:translateX(-10px);cursor:grab}
+  #months{position:relative;height:14px;margin:0 6px;font-size:10px;color:var(--muted)}
+  #months span{position:absolute;transform:translateX(-50%)}
+  .ctr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  button{font:600 13px 'Space Grotesk',sans-serif;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.on{background:var(--accent);color:#04121d;border-color:var(--accent)}
+  .q{min-width:44px}
+  .sep{flex:1}
+  label.tg{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
+  #qcard{left:50%;top:22px;transform:translateX(-50%) translateY(-12px);width:min(560px,calc(100vw - 700px));min-width:320px;padding:18px 22px;opacity:0;pointer-events:none;transition:opacity .45s ease,transform .45s ease}
+  #qcard.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  #qcard .k{font:700 12px 'Space Grotesk';letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
+  #qcard h2{font:700 22px/1.2 'Space Grotesk',sans-serif;margin-top:8px}
+  #qcard .m{display:inline-block;margin-top:10px;font:600 12px 'Space Grotesk';padding:5px 10px;border-radius:999px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.5)}
+  #ans{margin-top:12px;font-size:14px;line-height:1.45;color:#d7f3e6;display:none}
+  #ans table{border-collapse:collapse;margin:8px 0 6px;font-size:12.5px;font-variant-numeric:tabular-nums}
+  #ans th,#ans td{padding:3px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  #ans th{color:var(--muted);font-weight:600}
+  #ans th:first-child,#ans td:first-child{text-align:left}
+  #ans .f{font-size:12.5px;color:var(--muted)}
+  #qcard{max-height:calc(100vh - 190px);overflow:auto}
+  #predcard{right:122px;top:20px;width:min(420px,calc(100vw - 480px));min-width:300px;padding:16px 20px;display:none;max-height:calc(100vh - 190px);overflow:auto;z-index:4}
+  #predcard.show{display:block}
+  #predcard.hid{display:none}
+  #predcard .k{font:700 12px 'Space Grotesk';letter-spacing:.2em;color:#f0abfc;text-transform:uppercase}
+  #predcard h2{font:700 17px/1.25 'Space Grotesk',sans-serif;margin-top:6px}
+  #pcHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  #predcard .pcb{display:flex;gap:6px;flex-shrink:0}
+  #predcard .pcb button{padding:5px 10px;font-size:12px}
+  #predcard.min{cursor:pointer;padding:10px 16px}
+  #predcard.min #pcBody{display:none}
+  #predcard.min h2{font-size:15px}
+  #pcBody{font-size:13.5px;line-height:1.45;color:#e6eef5}
+  #pcBody p{margin-top:10px}
+  #pcBody .f{font-size:12.5px;color:var(--muted)}
+  #pcBody table{border-collapse:collapse;margin:10px 0 4px;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+  #pcBody th,#pcBody td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+  #pcBody th{color:var(--muted);font-weight:600}
+  #pcBody th:first-child,#pcBody td:first-child{text-align:left}
+  #pcBody tr.now td{background:rgba(232,121,249,.14)}
+  #editor{right:122px;top:20px;width:430px;max-height:calc(100vh - 190px);overflow:auto;padding:16px 18px;display:none;z-index:5}
+  #editor.show{display:block}
+  #editor .eh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  #editor .k,#editor .k2{font:700 12px 'Space Grotesk';letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
+  #editor .k2{margin:14px 0 8px}
+  #editor .es{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+  #editor #edClose{padding:4px 9px}
+  #edT{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+  #edT th{color:var(--muted);font-weight:600;text-align:left;padding:4px 4px;border-bottom:1px solid var(--line)}
+  #edT td{padding:3px 4px;border-bottom:1px solid rgba(160,200,230,.08)}
+  #edT td:first-child{color:var(--muted);width:22px}
+  #edT tr.val td:first-child{color:#ffd58a}
+  #editor input[type=date],#editor input[type=number]{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:5px 7px;font:500 12.5px Inter,sans-serif;color-scheme:dark}
+  #editor input:focus{outline:2px solid var(--accent);outline-offset:0}
+  #edT input[type=checkbox]{accent-color:#ffd58a;width:16px;height:16px}
+  #edT .del{padding:3px 8px;font-size:11px}
+  #editor .erow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+  #editor .warn{color:#fca5a5}
+  #editor .par{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+  #editor .par label.full{grid-column:1/-1}
+  #editor select{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:5px 7px;font:500 12.5px Inter,sans-serif;color-scheme:dark}
+  #editor .par label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted)}
+  #edMsg{margin-top:8px;font-size:12.5px;line-height:1.4}
+  #edMsg:empty{display:none}
+  #edMsg.bad{padding:7px 10px;border-radius:8px;background:rgba(248,113,113,.12)}
+  #edMsg.ok{color:#a7f3d0} #edMsg.bad{color:#fca5a5}
+  #qcard .acts{margin-top:12px;display:flex;gap:8px}
+  #mini{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:none}
+  #mini.show{display:block}
+  #mini .mh{display:flex;justify-content:space-between;gap:8px;font:600 10.5px Inter,sans-serif;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  #mini .mh span:last-child{text-transform:none;letter-spacing:0;font-weight:500;opacity:.8}
+  #miniC{position:static;inset:auto;display:block;width:100%;height:124px;margin-top:6px}
+  @media (max-height:760px){#miniC{height:86px}}
+  #note{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;line-height:1.45;color:var(--muted)}
+  #hint{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);padding:7px 14px;font:600 12px 'Space Grotesk';color:var(--muted);display:none;border-radius:999px;white-space:nowrap}
+  /* modo exposición */
+  body.pres #info{width:340px}
+  body.pres #lvl{font-size:68px}
+  body.pres #qcard{width:min(680px,calc(100vw - 820px));min-width:360px}
+  body.pres #qcard h2{font-size:27px}
+  body.pres #ans{font-size:16px}
+  body.pres #ans table,body.pres #ans .f{font-size:14px}
+  body.pres #note,body.pres #spd,body.pres label.tg{display:none}
+  body.pres #hint{display:block}
+  @media (max-width:980px){#predcard{width:calc(100vw - 40px);top:auto;bottom:170px}#editor{left:20px;right:20px;width:auto;top:20px}#info{width:230px;padding:12px}#lvl{font-size:40px}#date{font-size:20px}#qcard,body.pres #qcard{width:calc(100vw - 40px);top:auto;bottom:170px}#gaugeWrap{display:none}#note{display:none}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Modelo 3D del embalse de Chuza, Sistema Chingaza"></canvas>
+
+<div id="vig"></div>
+
+<div class="card" id="info">
+  <div class="t">Sistema Chingaza · 3D</div>
+  <div id="date">11 abr 2024</div>
+  <div id="lvlcap"></div>
+  <div id="lvl">16,3<small> %</small></div>
+  <div class="row"><span>Volumen almacenado</span><b id="vol">47 Mm³</b></div>
+  <div class="row" id="rowCap"><span>Capacidad estimada</span><b>287,6 Mm³</b></div>
+  <div id="status">—</div>
+  <div id="event"></div>
+  <div id="scen"><span id="scl">Nivel real, con racionamiento:</span> <b id="scv">—</b></div>
+  <div id="qres" aria-live="polite"><div class="rh">Respuesta del modelo</div><div id="qrb"></div></div>
+  <div id="mini" aria-label="Mini gráfica del nivel"><div class="mh"><span>Nivel del embalse</span><span id="miniWhy">gráfica 3D fuera de vista</span></div><canvas id="miniC"></canvas></div>
+  <div id="note"><span id="pnote"></span>Forma aproximada del embalse de Chuza; no es topografía real.<br>Arrastra para girar · rueda para acercar</div>
+</div>
+
+<div class="card" id="gaugeWrap"><div class="cap">NIVEL</div>
+  <div id="gauge"><div id="gfill"></div><div id="gscen"></div>
+    <div class="mk" id="mkM" style="bottom:70%;border-color:var(--ok)"><span style="color:var(--ok)">70 %</span></div>
+    <div class="mk" id="mkD" style="bottom:36%;border-color:var(--bad)"><span style="color:var(--bad)">36 %</span></div>
+  </div>
+</div>
+
+<div class="card" id="qcard">
+  <div class="k" id="qk">Pregunta</div>
+  <h2 id="qt">—</h2>
+  <span class="m" id="qm">—</span>
+  <div id="ans"></div>
+  <div class="acts"><button id="bAns">Ver respuesta</button><button id="bClose">Cerrar</button></div>
+</div>
+
+<div class="card" id="predcard" role="region" aria-label="Predicción comparada con datos reales">
+  <div id="pcHead"><div><div class="k">Extra · predicción</div><h2>¿Qué tan bien predice el modelo julio a diciembre de 2025?</h2></div>
+    <div class="pcb"><button id="pcMin" title="Ocultar o mostrar la tabla">Ocultar</button><button id="pcOff" title="Salir de la predicción">Salir</button></div></div>
+  <div id="pcBody"></div>
+</div>
+
+<div class="card" id="editor" role="dialog" aria-label="Editar los datos del modelo">
+  <div class="eh"><div><div class="k">Datos del modelo</div><div class="es">Al cambiar un valor se recalculan las 5 preguntas, la gráfica y la animación.</div></div><button id="edClose" aria-label="Cerrar el editor">✕</button></div>
+  <div id="edMsg" role="status"></div>
+  <table id="edT"><thead><tr><th>#</th><th>Fecha</th><th>Nivel (%)</th><th title="Dato de validación: se anima y sirve para comparar, pero no entra en los métodos">Valid.</th><th></th></tr></thead><tbody></tbody></table>
+  <div class="erow"><button id="edAdd">+ Agregar dato</button><span id="edCount"></span></div>
+  <div class="k2">Parámetros</div>
+  <div class="par">
+    <label>Capacidad (Mm³)<input id="pCap" type="number" step="0.1" min="0"></label>
+    <label>Ahorro del racionamiento (m³/s)<input id="pAh" type="number" step="0.001" min="0"></label>
+    <label>Meta (%)<input id="pMeta" type="number" step="0.1" min="0" max="100"></label>
+    <label>Día cero (%)<input id="pDz" type="number" step="0.1" min="0" max="100"></label>
+    <label>Inicio del racionamiento<input id="pIni" type="date"></label>
+    <label>Fin del racionamiento<input id="pFin" type="date"></label>
+    <label>Fecha a estimar (P1)<input id="pP1" type="date"></label>
+  </div>
+  <div class="k2">Predicción (botón Predicción)</div>
+  <div class="par">
+    <label>Inicio (dato real CAR)<input id="qIni" type="date"></label>
+    <label>Nivel real al inicio (%)<input id="qL0" type="number" step="0.01" min="0" max="100"></label>
+    <label>Fecha a predecir<input id="qFin" type="date"></label>
+    <label>Nivel real ese día (%)<input id="qReal" type="number" step="0.01" min="0" max="100"></label>
+    <label class="full">Velocidad: tramo de los datos que se usa<select id="qTramo"></select></label>
+  </div>
+  <div class="erow"><button id="edReset">Restaurar datos originales</button><span class="es">Los cambios no se guardan al recargar la página.</span></div>
+</div>
+
+<div class="card" id="bar">
+  <div id="tl"><div id="track"></div><div id="rat"><span>Racionamiento</span></div><div id="predb"><span>Predicción</span></div><div id="prog"></div><div id="knob"></div></div>
+  <div id="months"></div>
+  <div class="ctr">
+    <button id="play">▶ Reproducir</button>
+    <button id="spd">Velocidad ×1</button>
+    <span style="width:8px"></span>
+    <button class="q" data-q="0">P1</button><button class="q" data-q="1">P2</button><button class="q" data-q="2">P3</button><button class="q" data-q="3">P4</button><button class="q" data-q="4">P5</button>
+    <span class="sep"></span>
+    <label class="tg"><input type="checkbox" id="chk"> Escenario sin racionamiento</label>
+    <button id="bPred" title="Extra: predecir julio a diciembre de 2025 y comparar con datos reales (P)">Predicción</button>
+    <button id="bData" title="Editar los datos y recalcular (D)">Datos</button>
+    <button id="bChart" class="on" title="Mostrar u ocultar la gráfica 3D (G)">Gráfica 3D</button>
+    <button id="bPerf" title="Modo rendimiento: menos detalle, más fluidez (R)">Rendimiento</button>
+    <button id="bPres" title="Modo exposición (E)">Exposición</button>
+    <button id="fs" title="Pantalla completa">⛶</button>
+  </div>
+</div>
+<div class="card" id="hint">→ siguiente · ← anterior · Espacio reproducir · Esc salir</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ================= DATOS Y CÁLCULOS =================
+// Todo lo que muestran las preguntas se calcula aquí a partir de los datos, así que al editarlos se recalcula solo.
+const DAY=864e5;
+const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const fmt=(v,n=1)=>{const p=10**n,r=Math.round(Math.abs(v)*p+1e-7)/p;return (v<0&&r>0?'−':'')+r.toFixed(n).replace('.',',');};
+const sg=(v,n=1)=>(v>=0?'+':'−')+fmt(Math.abs(v),n);
+const fmt0=v=>Number.isInteger(+v)?String(+v):fmt(+v,1);
+const SUB='₀₁₂₃₄₅₆₇₈₉';
+// datos originales del proyecto: [fecha, nivel %, 1 = dato de validación]
+const ORIG={pts:[['2024-04-11',16.32,0],['2024-05-10',20.78,0],['2024-06-26',42.29,0],['2024-08-21',51.49,0],['2024-10-03',43.83,0],
+  ['2024-11-30',52.55,0],['2025-01-07',46.94,1],['2025-01-31',43.29,0],['2025-02-26',40.36,0],['2025-03-06',38.84,1],
+  ['2025-04-11',39.98,0],['2025-06-12',70,1],['2025-07-01',80.4,1],['2025-07-20',90.7,0]],
+  cap:287.6,ahorro:1.425,meta:70,dz:36,ini:'2024-04-11',fin:'2025-04-11',p1:'2025-01-07',
+  // predicción: parte de un dato real de la CAR y se compara con otro que el modelo no ve
+  pred:{ini:'2025-07-30',l0:92.44,fin:'2025-12-31',real:69.16,tramo:'2024-11-30',
+    // reportes reales de la CAR dentro del periodo: solo para comparar, el modelo no los usa
+    val:[['2025-08-13',92.35],['2025-12-24',71.76],['2025-12-25',71.45],['2025-12-27',70.84],['2025-12-29',70.13]]}};
+let PRED_ON=false,PR=null,AVG={v:40,a:0,b:1},CFG=null,D0=0,PTS=[],PTS10=[],TMAX=1,T_INI=0,T_END_RAT=1,CAP=287.6,K=33.29,AHORRO=1.425,META=70,DZ=36,PROM=40,EVENTOS=[],T_ARRIBA=0,S_ARRIBA=0;
+// cam: [posición de la cámara, punto al que mira]
+const VISTA0=[[-30,44,50],[-11,-2,0]];
+const PREG_N=[
+ {m:'Diferencias divididas de Newton · Lagrange',cam:[[-14,34,62],[-12,21,0]]},
+ {m:'Newton-Raphson',cam:[[-5,13,18],[12,-2.5,0]]},
+ {m:'Derivación numérica',vel:true,cam:[[-46,22,7],[0,-3,1]]},
+ {m:'Integración: trapecio y Simpson',avg:true,cam:[[-14,58,30],[-11,-3,1]]},
+ {m:'Euler explícito / RK4 + Newton-Raphson',scen:true,cam:[[-10,24,24],[6,-3,0]]}];
+let PREG=PREG_N;
+// preguntas del modo predicción: los 5 pasos del método, con las mismas vistas de cámara
+const fechaISO=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));if(!m)return NaN;const x=Date.UTC(+m[1],+m[2]-1,+m[3]),c=new Date(x);
+  return c.getUTCDate()===+m[3]&&c.getUTCMonth()===+m[2]-1?x:NaN;};
+const isoDe=x=>new Date(x).toISOString().slice(0,10);
+const fdate=t=>new Date(D0+Math.floor(t+1e-6)*DAY);            // el día en que cae t
+const fecha=t=>{const x=fdate(t);return `${x.getUTCDate()} ${MES[x.getUTCMonth()]} ${x.getUTCFullYear()}`;};
+const fcorta=t=>{const x=fdate(t);return `${x.getUTCDate()} ${MES[x.getUTCMonth()]}`;};
+const flarga=t=>{const x=fdate(t);return `${x.getUTCDate()} de ${MESL[x.getUTCMonth()]} de ${x.getUTCFullYear()}`;};
+const anio=t=>fdate(t).getUTCFullYear(), mesN=t=>fdate(t).getUTCMonth();
+function interp(P,t){if(t<=P[0][0])return P[0][1];
+  for(let i=0;i<P.length-1;i++){const [a,ya]=P[i],[b,yb]=P[i+1];if(t<=b)return ya+(yb-ya)*(t-a)/(b-a);}return P[P.length-1][1];}
+function pend(P,t,ult){for(let i=0;i<P.length-1;i++){const [a,ya]=P[i],[b,yb]=P[i+1];if(t<b||(ult&&i===P.length-2))return (yb-ya)/(b-a);}return 0;}
+const predEn=t=>{const k=Math.min(PR.n,Math.max(0,t-PR.t0)),i=Math.min(PR.n-1,Math.floor(k));return PR.LP[i]+(PR.LP[i+1]-PR.LP[i])*(k-i);};
+const nivelReal=t=>PR&&PRED_ON&&t>PR.t0?predEn(t):interp(PTS,t);              // todos los datos (proyecto + validación): lo que se anima
+const tasa=t=>PR&&PRED_ON&&t>=PR.t0?PR.v:pend(PTS,t,false);
+const nivelP=t=>interp(PTS10,t);               // solo los datos del proyecto: lo que usan los métodos
+const tasaP=t=>PR&&PRED_ON&&t>=PR.t0?PR.v:pend(PTS10,t,true);
+const ahorroEn=t=>t>=T_INI&&t<T_END_RAT?AHORRO/K:0;
+function nivelSin(t){return nivelReal(t)-AHORRO/K*Math.min(Math.max(t-T_INI,0),T_END_RAT-T_INI);}
+// polinomio de Newton por diferencias divididas
+function difDiv(xs,ys){const c=ys.slice();for(let j=1;j<xs.length;j++)for(let i=xs.length-1;i>=j;i--)c[i]=(c[i]-c[i-1])/(xs[i]-xs[i-j]);return c;}
+function evNewton(c,xs,t){let s=c[c.length-1];for(let k=c.length-2;k>=0;k--)s=s*(t-xs[k])+c[k];return s;}
+const difDias=(a,b)=>{const n=Math.floor(a+1e-6)-Math.floor(b+1e-6);return n===0?'el mismo día':Math.abs(n)+(Math.abs(n)===1?' día ':' días ')+(n>0?'tarde':'antes');};
+const filaR=(a,b,c='')=>`<div class="rr ${c}"><span>${a}</span><b>${b}</b></div>`;  // fila del recuadro "Respuesta del modelo"
+const coef=v=>(v<0?'− ':'+ ')+Math.abs(v).toPrecision(4).replace('.',',');
+const nombres=ts=>ts.length<2?ts.map(fcorta).join(''):ts.slice(0,-1).map(fcorta).join(', ')+' y '+fcorta(ts[ts.length-1]);
+
+function preparar(cfg){
+  if(!cfg||!Array.isArray(cfg.pts))throw Error('Faltan los datos.');
+  const rows=cfg.pts.map((p,i)=>{const x=fechaISO(p[0]),y=typeof p[1]==='string'?parseFloat(p[1].replace(',','.')):+p[1];
+    if(isNaN(x))throw Error(`Fila ${i+1}: la fecha no es válida.`);
+    if(!isFinite(y)||y<0||y>100)throw Error(`Fila ${i+1}: el nivel debe estar entre 0 y 100 %.`);return [x,y,p[2]?1:0];});
+  rows.sort((a,b)=>a[0]-b[0]);
+  for(let i=1;i<rows.length;i++)if(rows[i][0]===rows[i-1][0])throw Error(`Hay dos datos con la misma fecha (${isoDe(rows[i][0])}).`);
+  const proy=rows.filter(r=>!r[2]);
+  if(proy.length<4)throw Error('Se necesitan al menos 4 datos del proyecto (sin marcar como validación).');
+  const num=v=>typeof v==='string'?parseFloat(v.replace(',','.')):+v;
+  const cap=num(cfg.cap),ah=num(cfg.ahorro),meta=num(cfg.meta),dz=num(cfg.dz);
+  if(!(cap>0))throw Error('La capacidad debe ser mayor que 0.');
+  if(!(ah>=0))throw Error('El ahorro del racionamiento no puede ser negativo.');
+  if(!(meta>0&&meta<100))throw Error('La meta debe estar entre 0 y 100 %.');
+  if(!(dz>0&&dz<100))throw Error('El día cero debe estar entre 0 y 100 %.');
+  const ini=fechaISO(cfg.ini),fin=fechaISO(cfg.fin),p1=fechaISO(cfg.p1);
+  if(isNaN(ini)||isNaN(fin)||isNaN(p1))throw Error('Revisa las fechas de los parámetros.');
+  if(ini>=fin)throw Error('El racionamiento debe empezar antes de terminar.');
+  if(ini<rows[0][0]||fin>rows[rows.length-1][0])throw Error('El racionamiento debe empezar y terminar dentro del rango de fechas de los datos.');
+  if(p1<=proy[0][0]||p1>=proy[proy.length-1][0])throw Error('La fecha de la pregunta 1 debe quedar entre el primer y el último dato del proyecto.');
+  return {rows,cap,ah,meta,dz,ini,fin,p1};
+}
+
+function calcular(cfg){
+  const z=preparar(cfg);
+  PR=null;
+  CFG=JSON.parse(JSON.stringify(cfg));
+  D0=z.rows[0][0];
+  PTS=z.rows.map(r=>[Math.round((r[0]-D0)/DAY),r[1],r[2]]);
+  PTS10=PTS.filter(p=>!p[2]); TMAX=PTS[PTS.length-1][0];
+  T_INI=Math.round((z.ini-D0)/DAY); T_END_RAT=Math.round((z.fin-D0)/DAY);
+  CAP=z.cap; K=CAP*1e6/100/86400; AHORRO=z.ah; META=z.meta; DZ=z.dz;
+  T_ARRIBA=TMAX;for(let d=0;d<=TMAX;d++)if(nivelReal(d)>DZ){T_ARRIBA=d;break;}
+  S_ARRIBA=TMAX;for(let d=T_INI;d<=TMAX;d++)if(nivelSin(d)>DZ){S_ARRIBA=d;break;}
+  p1(Math.round((z.p1-D0)/DAY)); p2(); p3(); p4(); p5(); eventos();
+  AVG={v:PROM,a:T_INI,b:T_END_RAT}; PREG=PREG_N;
+  if(PRED_ON)predecir(cfg.pred||ORIG.pred);
+}
+
+// ===== PREDICCIÓN (extra) =====
+// Parte de un dato real de la CAR, avanza día a día con Euler a la velocidad de un tramo de los datos
+// y se compara con reportes reales que el modelo no usa. No cambia las 5 preguntas.
+function predecir(pd){
+  const num=v=>typeof v==='string'?parseFloat(v.replace(',','.')):+v;
+  const x0=fechaISO(pd.ini),x1=fechaISO(pd.fin),xt=fechaISO(pd.tramo),l0=num(pd.l0),real=num(pd.real);
+  if(isNaN(x0)||isNaN(x1))throw Error('Revisa las fechas de la predicción.');
+  if(!(l0>=0&&l0<=100)||!(real>=0&&real<=100))throw Error('Los niveles reales de la predicción deben estar entre 0 y 100 %.');
+  const td=x=>Math.round((x-D0)/DAY),t0=td(x0),t1=td(x1),ult=PTS[PTS.length-1][0];
+  if(t0<=ult)throw Error(`La predicción debe empezar después del último dato (${fecha(ult)}).`);
+  if(t1<t0+2)throw Error('La fecha final de la predicción debe ser posterior a la inicial.');
+  const it=PTS10.findIndex(p=>p[0]===td(xt));
+  if(it<0||it>=PTS10.length-1)throw Error('Elige en el editor el tramo de datos que da la velocidad.');
+  const [ta,ya]=PTS10[it],[tb,yb]=PTS10[it+1],v=(yb-ya)/(tb-ta),n=t1-t0;
+  const LP=[l0];for(let k=0;k<n;k++)LP.push(LP[k]+v*1);              // Euler, h = 1 día
+  PR={t0,t1,n,l0,real,v,LP,ta,tb};
+  const RV=[[t0,l0],...(pd.val||[]).map(r=>[td(fechaISO(r[0])),num(r[1])]).filter(r=>r[0]>t0&&r[0]<t1&&isFinite(r[1])),[t1,real]].sort((a,b)=>a[0]-b[0]);
+  PR.RV=RV;
+  const cmp=RV.slice(1).map(r=>({t:r[0],p:predEn(r[0]),r:r[1]})),ea=cmp.map(c=>Math.abs(c.p-c.r)),mae=ea.reduce((a,b)=>a+b,0)/ea.length;
+  const peor=cmp.reduce((a,b)=>Math.abs(b.p-b.r)>Math.abs(a.p-a.r)?b:a),fin=cmp.at(-1),vr=(real-l0)/n;
+  PR.rows=cmp.map(c=>c.t);
+  PR.html=`<p class="f">Parte del dato real del ${flarga(t0)} (${fmt(l0,2)} %) y avanza día a día con el método de Euler explícito (usa la pendiente del día actual): L(día + 1) = L(día) + v, con v = ${sg(v,4)} %/día (${sg(v*K,2)} m³/s), la velocidad real del ${fecha(ta)} al ${fecha(tb)}. Los datos reales no entran en el cálculo.</p>`+
+    `<table><tr><th>Fecha</th><th>Predicho</th><th>Real (CAR)</th><th>Error</th></tr>`+
+    cmp.map((c,i)=>`<tr data-k="${i}"><td>${fecha(c.t)}</td><td>${fmt(c.p,2)} %</td><td>${fmt(c.r,2)} %</td><td>${sg(c.p-c.r,2)}</td></tr>`).join('')+`</table>`+
+    `<p>Error medio: <b>${fmt(mae,2)} puntos</b>. El mayor fue ${sg(peor.p-peor.r,2)} el ${fecha(peor.t)} y el del final, ${sg(fin.p-fin.r,2)}. Velocidad promedio: predicha ${sg(v*K,2)} m³/s, real ${sg(vr*K,2)} m³/s.</p>`+
+    (Math.abs(fin.p-fin.r)<mae?`<p class="f">Acertar el final no garantiza acertar en medio: el modelo supone que el embalse ${v<0?'bajó':'subió'} parejo, y los datos reales muestran que no fue así.</p>`:`<p class="f">El error del final es mayor que el promedio: la velocidad real cambió hacia el final del periodo.</p>`);
+  PTS.push([t0,l0,2]);RV.slice(1,-1).forEach(r=>PTS.push([r[0],r[1],3]));TMAX=t1;
+  EVENTOS.push([t0,`Inicio de la predicción · dato real CAR: ${fmt(l0,2)} %`]);
+  RV.slice(1,-1).forEach(r=>EVENTOS.push([r[0],`Predicho ${fmt(predEn(r[0]),2)} % · real CAR ${fmt(r[1],2)} %`]));
+  EVENTOS.push([t1,`Predicho ${fmt(LP[n],2)} % · real CAR ${fmt(real,2)} %`]);
+}
+
+// P1: interpolación de Newton (grados 1 a 3) y comprobación con Lagrange
+function p1(tE){const q=PREG_N[0];
+  // nodos: los dos que encierran la fecha y luego, alternando, uno a la derecha y uno a la izquierda
+  let iz=-1;PTS10.forEach((p,k)=>{if(p[0]<=tE)iz=k;});let de=iz+1;const ord=[PTS10[iz],PTS10[de]];
+  for(let lado=1;ord.length<4;lado=1-lado){if(lado&&de+1<PTS10.length)ord.push(PTS10[++de]);else if(!lado&&iz>0)ord.push(PTS10[--iz]);
+    else if(de+1>=PTS10.length&&iz<=0)break;}
+  const real=PTS.find(p=>p[0]===tE&&p[2]), enDato=PTS10.some(p=>p[0]===tE);
+  q.t=`¿Qué nivel tenía Chingaza el ${flarga(tE)}${enDato?'':', un día sin dato'}?`; q.go=tE; q.from=undefined;
+  const res=[];
+  for(let g=1;g<=3&&g<ord.length;g++){const nd=ord.slice(0,g+1),xs=nd.map(p=>p[0]),c=difDiv(xs,nd.map(p=>p[1]));res.push({g,nd,v:evNewton(c,xs,tE)});}
+  const best=real?res.reduce((a,b)=>Math.abs(b.v-real[1])<Math.abs(a.v-real[1])?b:a):res[0];
+  let filas='';
+  res.forEach(r=>{const nom=r.g===1?r.nd.map(p=>p[0]).sort((a,b)=>a-b).map(fcorta).join(', '):'+ '+fcorta(r.nd[r.g][0]);
+    const v=fmt(r.v,2)+' %';filas+=`<tr><td>${r.g} · ${nom}</td><td>${r===best?'<b>'+v+'</b>':v}</td>${real?`<td>${sg(r.v-real[1],2)}</td>`:''}</tr>`;});
+  let txt=real?`Valor real (dato de validación): ${fmt(real[1],2)} %. `+(best.g===1&&res.length>1?'Subir el grado no mejora: con datos tan separados el polinomio oscila, y la mejor estimación es la de grado 1.':`La mejor estimación es la de grado ${best.g}.`)
+    :'No hay un dato de validación ese día para comparar; puedes agregar uno marcado como validación.';
+  let lag='';
+  if(res.length>1){const nd=res[1].nd.slice().sort((a,b)=>a[0]-b[0]);
+    const L=nd.map((p,i)=>nd.reduce((acc,r,j)=>j===i?acc:acc*(tE-r[0])/(p[0]-r[0]),1)),vl=L.reduce((s,l,i)=>s+l*nd[i][1],0);
+    const terms=L.map((l,i)=>(i?(l<0?' − ':' + '):(l<0?'−':''))+fmt(Math.abs(l),4)+'·'+fmt(nd[i][1],2)).join('');
+    lag=`<br><span class="f">Comprobación con Lagrange (grado 2, nodos t = ${nd.map(p=>p[0]).join(', ')}): ${L.map((l,i)=>`L${SUB[i]}(${tE}) = ${fmt(l,4)}`).join(' · ')}, que suman ${fmt(L.reduce((a,b)=>a+b,0),0)}.<br>P(${tE}) = ${terms} = ${fmt(vl,2)} %, el mismo valor que con diferencias divididas.</span>`;}
+  // la simulación muestra el valor del modelo ese día y el real como referencia
+  q.cmp={from:tE,to:tE,f:()=>best.v,cap:`polinomio de grado ${best.g}`,
+    html:filaR(`Modelo (grado ${best.g})`,fmt(best.v,2)+' %')+(real?filaR('Real (validación)',fmt(real[1],2)+' %')+filaR('Margen de error',sg(best.v-real[1],2)+' puntos','err')
+      :'<div class="rn">No hay dato real ese día para comparar.</div>')};
+  q.a=`Polinomio de Newton por diferencias divididas, evaluado en t = ${tE} días:<table><tr><th>Grado · nodos</th><th>P(${tE})</th>${real?'<th>Error</th>':''}</tr>${filas}</table>${txt}${lag}`;
+}
+
+// P2: día en que se alcanza la meta (recta y Newton-Raphson sobre el polinomio de grado 2)
+function p2(){const q=PREG_N[1],P=PTS10;q.t=`¿Qué día el embalse alcanzó la meta del ${fmt0(META)} %?`;q.tMeta=null;q.metaReal=false;q.cmp=null;
+  const i=P.findIndex((p,k)=>k<P.length-1&&p[1]<META&&P[k+1][1]>=META);
+  if(i<0){const mx=P.reduce((a,b)=>b[1]>a[1]?b:a);q.from=undefined;q.go=mx[0];
+    q.cmp={html:filaR('Modelo',`no llega al ${fmt0(META)} %`)};
+    q.a=`Con estos datos el embalse no cruza la meta del ${fmt0(META)} % (el máximo es ${fmt(mx[1],2)} %, el ${flarga(mx[0])}), así que no hay raíz que buscar.`;return;}
+  const [ta,ya]=P[i],[tb,yb]=P[i+1],r1=ta+(META-ya)/(yb-ya)*(tb-ta);
+  let ref=null;
+  if(PTS.some(p=>p[2]&&p[0]>ta&&p[0]<tb))for(let k=0;k<PTS.length-1;k++){const [a,y0]=PTS[k],[b,y1]=PTS[k+1];if(b<=ta)continue;if(y0<META&&y1>=META){ref=a+(META-y0)/(y1-y0)*(b-a);break;}}
+  const idx=i>0?[i-1,i,i+1]:(i+2<P.length?[i,i+1,i+2]:null);
+  let html='',r2=null,Pf2=null;
+  if(idx){const xs=idx.map(k=>P[k][0]),c=difDiv(xs,idx.map(k=>P[k][1]));
+    const Pf=t=>evNewton(c,xs,t),dP=t=>c[1]+c[2]*(2*t-xs[0]-xs[1]);Pf2=Pf;
+    const t0=ta+.35*(tb-ta);let tk=t0,filas='',ok=false;
+    const fF=f=>Math.abs(f)<5e-4?'0,000':Math.abs(f)<.01?sg(f,3):sg(f,2);
+    for(let k=0;k<25;k++){const f=Pf(tk)-META;filas+=`<tr><td>${k}</td><td>${fmt(tk,2)}</td><td>${fF(f)}</td></tr>`;
+      if(Math.abs(f)<5e-4&&k>0){ok=true;break;}const dv=dP(tk);if(!isFinite(dv)||Math.abs(dv)<1e-12)break;tk-=f/dv;if(!isFinite(tk))break;}
+    html=`<span class="f">P₂(t) = ${fmt(c[0],2)} ${coef(c[1])} (t−${xs[0]}) ${coef(c[2])} (t−${xs[0]})(t−${xs[1]}), por diferencias divididas con ${nombres(xs)}.</span><br>Newton-Raphson sobre P₂(t) − ${fmt0(META)} = 0, con t₀ = ${fmt(t0,0)}:`+
+      `<table><tr><th>k</th><th>t<sub>k</sub> (días)</th><th>P₂(t<sub>k</sub>) − ${fmt0(META)}</th></tr>${filas}</table>`;
+    if(ok)r2=tk;else html+='Newton-Raphson no convergió desde t₀ con este polinomio; se usa la recta. ';
+    if(ok&&(r2<ta-1||r2>tb+1))html+=`<span class="f">La raíz cae fuera del tramo ${fcorta(ta)}–${fcorta(tb)}, así que el polinomio no representa bien ese tramo.</span><br>`;}
+  const tx=(r,n)=>flarga(r)+(ref!==null?` (${difDias(r,ref)})`:'');
+  if(r2!==null)html+=`Grado 2: <b>${tx(r2)}</b>. Grado 1: ${tx(r1)}. `;else html+=`Grado 1 (recta): <b>${tx(r1)}</b>. `;
+  if(ref!==null){html+=`Real: ${flarga(ref)}. `;
+    if(r2!==null)html+=Math.abs(r1-ref)<=Math.abs(r2-ref)?`Entre el ${fcorta(ta)} y el ${fcorta(tb)} hay ${tb-ta} días sin datos del proyecto, así que la curvatura del polinomio no está respaldada y la recta acierta más.`:'Aquí el polinomio de grado 2 acierta más que la recta.';}
+  else if(r2!==null)html+=`No hay datos de validación dentro del tramo para saber cuál acierta; las dos estimaciones difieren en ${Math.abs(Math.floor(r2+1e-6)-Math.floor(r1+1e-6))} días.`;
+  // la simulación termina en la respuesta del modelo (grado 2 si Newton-Raphson convergió; si no, la recta)
+  // y, mientras dura el tramo, el agua sigue la curva del modelo; el nivel real queda como referencia
+  const fLin=t=>ya+(yb-ya)*(t-ta)/(tb-ta),tM=r2!==null?r2:r1;
+  q.a=html;q.from=Math.min(ta,Math.floor(tM));q.go=tM;q.tMeta=ref!==null?ref:tM;q.metaReal=ref!==null;
+  q.cmp={from:q.from,to:tM,f:r2!==null?Pf2:fLin,cap:r2!==null?'parábola de grado 2':'recta',
+    html:filaR(r2!==null?'Modelo (grado 2)':'Modelo (recta)',fecha(tM))+(ref!==null?filaR('Real',fecha(ref))+filaR('Margen de error',difDias(tM,ref),'err'):'')+
+      (r2!==null?`<div class="rn">Con la recta (grado 1): ${fecha(r1)}${ref!==null?', '+difDias(r1,ref):''}.</div>`:'')+
+      (ref===null?'<div class="rn">No hay dato real dentro del tramo para comparar.</div>':'')};
+}
+
+// P3: derivada por diferencias finitas entre datos consecutivos
+function p3(){const q=PREG_N[2],P=PTS10;q.t='¿A qué velocidad se llenaba o se vaciaba el embalse?';q.from=0;q.go=TMAX;
+  const fil=[];for(let i=0;i<P.length-1;i++){const [a,ya]=P[i],[b,yb]=P[i+1],r=(yb-ya)/(b-a);fil.push({a,b,r,v:r*K});}
+  const mx=fil.reduce((x,y)=>y.v>x.v?y:x),mn=fil.reduce((x,y)=>y.v<x.v?y:x);
+  const rango=f=>anio(f.a)===anio(f.b)?`${MES[mesN(f.a)]}–${MES[mesN(f.b)]} ${anio(f.b)}`:`${MES[mesN(f.a)]} ${anio(f.a)}–${MES[mesN(f.b)]} ${anio(f.b)}`;
+  let filas='';fil.forEach((f,i)=>{const v=sg(f.v)+'';filas+=`<tr><td>${fcorta(f.a)} – ${fcorta(f.b)}${i===0||anio(f.a)!==anio(f.b)?' '+anio(f.b):''}</td><td>${f.b-f.a}</td><td>${sg(f.r,3)}</td><td>${f===mx&&f.v>0||f===mn&&f.v<0?'<b>'+v+'</b>':v}</td></tr>`;});
+  q.a=`<span class="f">Diferencia finita entre datos consecutivos: v ≈ (L<sub>i+1</sub> − L<sub>i</sub>) / (t<sub>i+1</sub> − t<sub>i</sub>), y 1 %/día = ${fmt(K,2)} m³/s.</span>`+
+    `<table><tr><th>Intervalo</th><th>Días</th><th>%/día</th><th>m³/s</th></tr>${filas}</table>`+
+    (mx.v>0?`Llenado más rápido: <b>${sg(mx.v)} m³/s</b> (${rango(mx)}). `:'No hubo tramos de llenado. ')+
+    (mn.v<0?`Vaciado más rápido: <b>${sg(mn.v)} m³/s</b> (${rango(mn)}).`:'No hubo tramos de vaciado.');
+  // referencia: la misma diferencia finita usando también los datos de validación (tramos más cortos)
+  const filR=[];for(let i=0;i<PTS.length-1;i++){const [a,ya]=PTS[i],[b,yb]=PTS[i+1];filR.push({a,b,v:(yb-ya)/(b-a)*K});}
+  const mxR=filR.reduce((x,y)=>y.v>x.v?y:x),mnR=filR.reduce((x,y)=>y.v<x.v?y:x),hayV=PTS.length>PTS10.length;
+  q.cmp={html:hayV?`<table><tr><th>m³/s</th><th>Modelo</th><th>Validación</th><th>Error</th></tr>`+
+      `<tr><td>Llenado máx.</td><td>${sg(mx.v)}</td><td>${sg(mxR.v)}</td><td class="e">${sg(mx.v-mxR.v)}</td></tr>`+
+      `<tr><td>Vaciado máx.</td><td>${sg(mn.v)}</td><td>${sg(mnR.v)}</td><td class="e">${sg(mn.v-mnR.v)}</td></tr></table>`+
+      `<div class="rn">Con tramos más cortos la derivada se acerca más a la real.</div>`
+    :filaR('Llenado más rápido',sg(mx.v)+' m³/s')+filaR('Vaciado más rápido',sg(mn.v)+' m³/s')+'<div class="rn">No hay datos de validación para comparar.</div>'};
+}
+
+// P4: nivel promedio durante el racionamiento (trapecio y Simpson para intervalos desiguales)
+function p4(){const q=PREG_N[3],a=T_INI,b=T_END_RAT,dur=b-a;
+  q.t=`¿Cuál fue el nivel promedio durante ${dur>=350&&dur<=380?'el año de racionamiento':'el racionamiento'}?`;q.go=b;q.from=undefined;
+  const nd=[[a,nivelP(a)],...PTS10.filter(p=>p[0]>a&&p[0]<b).map(p=>[p[0],p[1]]),[b,nivelP(b)]],n=nd.length-1;
+  let tr=0;for(let i=0;i<n;i++)tr+=(nd[i+1][0]-nd[i][0])*(nd[i][1]+nd[i+1][1])/2;
+  let si=0,i=0;for(;i+1<n;i+=2){const h0=nd[i+1][0]-nd[i][0],h1=nd[i+2][0]-nd[i+1][0];
+    si+=(h0+h1)/6*((2-h1/h0)*nd[i][1]+(h0+h1)*(h0+h1)/(h0*h1)*nd[i+1][1]+(2-h0/h1)*nd[i+2][1]);}
+  let nota='';if(i<n){si+=(nd[n][0]-nd[n-1][0])*(nd[n-1][1]+nd[n][1])/2;nota=' (el último tramo con trapecio, porque Simpson necesita tramos en pares)';}
+  PROM=tr/dur;const S=si/dur,simple=nd.reduce((s,p)=>s+p[1],0)/nd.length;
+  q.a=`<span class="f">${nd.length} puntos entre el ${flarga(a)} y el ${flarga(b)}; promedio = (1/T)·∫ L(t) dt, con T = ${dur} días.</span><br>`+
+    `Trapecio: <b>${fmt(PROM,2)} %</b> (≈ ${fmt(PROM/100*CAP,0)} millones de m³) · Simpson para intervalos desiguales${nota}: ${fmt(S,2)} %. El promedio simple daría ${fmt(simple,2)} %, porque ignora que los datos no están igual de espaciados.`;
+  // referencia: trapecio con todos los datos (proyecto + validación)
+  const ndR=[[a,nivelReal(a)],...PTS.filter(p=>p[0]>a&&p[0]<b).map(p=>[p[0],p[1]]),[b,nivelReal(b)]];
+  let trR=0;for(let k=0;k<ndR.length-1;k++)trR+=(ndR[k+1][0]-ndR[k][0])*(ndR[k][1]+ndR[k+1][1])/2;
+  const pR=trR/dur,hayV=PTS.some(p=>p[2]&&p[0]>a&&p[0]<b);
+  q.cmp={html:filaR('Modelo (trapecio)',fmt(PROM,2)+' %')+(hayV?filaR('Con datos de validación',fmt(pR,2)+' %')+filaR('Margen de error',sg(PROM-pR,2)+' puntos','err')
+    :'<div class="rn">No hay datos de validación en el periodo para comparar.</div>')};
+}
+
+// P5: escenario sin racionamiento (Euler y RK4 con h = 1 día) y día cero con Newton-Raphson
+function p5(){const q=PREG_N[4],c=AHORRO/K,L0=nivelReal(T_INI);
+  q.t=`¿Se habría llegado al día cero (${fmt0(DZ)} %) sin racionamiento?`;
+  const f=t=>tasa(t)-ahorroEn(t);
+  let LE=L0,LR=L0,eE=0,eR=0;const marcas=new Set(PTS10.filter(p=>p[0]>T_INI&&p[0]<=T_END_RAT).map(p=>p[0])),filas=[];
+  for(let t=T_INI;t<T_END_RAT;t++){LE+=f(t);const k1=f(t),k2=f(t+.5),k3=k2,k4=f(t+1-1e-7);LR+=(k1+2*k2+2*k3+k4)/6;
+    const ex=nivelSin(t+1);eE=Math.max(eE,Math.abs(LE-ex));eR=Math.max(eR,Math.abs(LR-ex));if(marcas.has(t+1))filas.push([t+1,LE,LR,ex]);}
+  const tabla=`<table><tr><th>Fecha</th><th>Euler explícito</th><th>RK4</th><th>Exacta</th></tr>${filas.map(r=>`<tr><td>${fecha(r[0])}</td><td>${fmt(r[1],2)} %</td><td>${fmt(r[2],2)} %</td><td>${fmt(r[3],2)} %</td></tr>`).join('')}</table>`;
+  const edo=`<span class="f">EDO: dL/dt = tasa(t) − ${fmt(AHORRO,3)}/${fmt(K,2)} = tasa(t) − ${fmt(c,4)} %/día mientras dura el racionamiento, con L(t₀) = ${fmt(L0,2)} % y paso h = 1 día. Euler explícito: L<sub>k+1</sub> = L<sub>k</sub> + h·f(t<sub>k</sub>), con la pendiente del inicio del paso.</span>`;
+  const err=`<span class="f">Error máximo frente a la solución exacta: Euler explícito ${fmt(eE,3)} · RK4 ${fmt(eR,3)}. Coinciden porque la pendiente no depende de L y es constante dentro de cada día.</span>`;
+  const notaP5=`<div class="rn">El racionamiento sí ocurrió. Error del método frente a la solución exacta: Euler explícito ${fmt(eE,3)} · RK4 ${fmt(eR,3)}.</div>`;
+  // día cero: primer cruce hacia abajo después de haber estado por encima
+  let tz=null;for(let d=S_ARRIBA;d<=TMAX;d++)if(nivelSin(d)<=DZ){tz=d;break;}
+  if(tz!==null&&tz>S_ARRIBA){let tk=tz-1,it=0;
+    for(;it<20;it++){const g=nivelSin(tk)-DZ;if(Math.abs(g)<1e-7)break;const dg=f(tk);if(Math.abs(dg)<1e-12)break;let tn=tk-g/dg;tn=Math.min(Math.max(tn,tz-1),tz);if(Math.abs(tn-tk)<1e-9){tk=tn;break;}tk=tn;}
+    const nr=`<span class="f">Newton-Raphson sobre L(t) − ${fmt0(DZ)} = 0 desde t₀ = ${tz-1} converge en ${Math.max(it,1)} ${Math.max(it,1)===1?'iteración':'iteraciones'}: t = ${fmt(tk,2)} días.</span>`;
+    q.a=`Sí: hacia el <b>${flarga(tk)}</b>, y al terminar el racionamiento (${flarga(T_END_RAT)}) el nivel habría estado en ${fmt(nivelSin(T_END_RAT),1)} % (real: ${fmt(nivelReal(T_END_RAT),1)} %).<br>${edo}${tabla}${err}<br>${nr}`;
+    q.go=tk;q.from=Math.max(T_INI,Math.floor(tk)-34);
+    q.cmp={html:filaR('Día cero (modelo)',fecha(tk))+filaR('Real','no ocurrió')+filaR('Margen de error','sin dato real','err')+notaP5};}
+  else{let tm=T_INI,vm=1e9;for(let d=Math.max(T_INI,S_ARRIBA);d<=TMAX;d++){const v=nivelSin(d);if(v<vm){vm=v;tm=d;}}
+    q.a=(S_ARRIBA>=TMAX?`Sin racionamiento el nivel nunca habría superado el día cero (${fmt0(DZ)} %).`:`No: sin racionamiento el nivel más bajo habría sido ${fmt(vm,1)} %, el ${flarga(tm)}, por encima del día cero (${fmt0(DZ)} %).`)+`<br>${edo}${tabla}${err}`;
+    q.go=tm;q.from=Math.max(T_INI,tm-34);
+    q.cmp={html:filaR('Nivel mínimo (modelo)',fmt(vm,1)+' %')+filaR('Fecha',fecha(tm))+filaR('Margen de error','sin dato real','err')+notaP5};}
+}
+
+function eventos(){const E=[[T_INI,'Inicio del racionamiento']];
+  PTS.filter(p=>p[2]).forEach(p=>E.push([p[0],'Dato de validación: '+fmt(p[1],2)+' %']));
+  const win=PTS.filter(p=>p[0]>=T_INI&&p[0]<=T_END_RAT);
+  if(win.length){const mx=win.reduce((a,b)=>b[1]>a[1]?b:a);E.push([mx[0],'Máximo durante el racionamiento: '+fmt(mx[1],2)+' %']);
+    const tras=win.filter(p=>p[0]>mx[0]);if(tras.length){const mn=tras.reduce((a,b)=>b[1]<a[1]?b:a);E.push([mn[0],'Mínimo después del máximo: '+fmt(mn[1],2)+' %'+(mn[1]-DZ<5?' (cerca del día cero)':'')]);}}
+  E.push([T_END_RAT,'Fin del racionamiento']);
+  if(PREG_N[1].tMeta!==null)E.push([PREG_N[1].tMeta,(PREG_N[1].metaReal?'Dato real: se alcanza la meta del ':'Se alcanza la meta del ')+fmt0(META)+' %']);
+  const u=PTS[PTS.length-1];E.push([u[0],u[1]>=90?'Chingaza supera el 90 %':'Último dato: '+fmt(u[1],2)+' %']);
+  EVENTOS=E;
+}
+calcular(ORIG);
+
+
+// ================= ESCENA =================
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=.92;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=false;
+const scene=new THREE.Scene();
+const C_HOR=new THREE.Color(0xb6cbd8), C_ZEN=new THREE.Color(0x5f8fb8), C_HOR_R=new THREE.Color(0x8d9aa3), C_ZEN_R=new THREE.Color(0x56636e);
+const skyU={uTop:{value:C_ZEN.clone()},uHor:{value:C_HOR.clone()}};
+scene.fog=new THREE.Fog(C_HOR.getHex(),70,190);
+const camera=new THREE.PerspectiveCamera(42,1,.1,900); camera.position.set(...VISTA0[0]);
+const controls=new THREE.OrbitControls(camera,canvas); controls.target.set(...VISTA0[1]); controls.enableDamping=true;
+controls.maxPolarAngle=Math.PI*.485; controls.minDistance=9; controls.maxDistance=120; controls.autoRotate=true; controls.autoRotateSpeed=.3;
+const hemi=new THREE.HemisphereLight(0xcfe4ff,0x6b6247,.75); scene.add(hemi);
+const SUN_DIR=new THREE.Vector3(-.55,.62,.5).normalize();
+const sun=new THREE.DirectionalLight(0xfff1d8,2.3); sun.position.copy(SUN_DIR).multiplyScalar(90).add(new THREE.Vector3(-10,0,0)); sun.target.position.set(-10,0,0);
+sun.castShadow=true; sun.shadow.mapSize.set(4096,4096); const sc=sun.shadow.camera; sc.left=-62;sc.right=62;sc.top=48;sc.bottom=-48;sc.near=10;sc.far=190;
+sun.shadow.bias=-.0006; sun.shadow.normalBias=.5; scene.add(sun,sun.target);
+
+// --- cielo: degradado, sol y nubes procedurales ---
+const GLSL_N=`float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+  float ns(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}
+  float fb(vec2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*ns(p);p=p*2.03+vec2(17.,9.);a*=.5;}return s;}`;
+skyU.uTime={value:0}; skyU.uRain={value:0}; skyU.uLow={value:0}; skyU.uSun={value:new THREE.Vector3()};
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(600,48,24),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,uniforms:skyU,
+  vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:`uniform vec3 uTop,uHor,uSun;uniform float uTime,uRain,uLow;varying vec3 vP;${GLSL_N}
+    void main(){vec3 d=normalize(vP);float h=d.y;vec3 col=mix(uHor,uTop,smoothstep(0.,.5,h));
+      float sd=max(dot(d,uSun),0.);col+=(vec3(1.,.9,.7)*pow(sd,900.)*6.+vec3(1.,.85,.6)*pow(sd,12.)*.25)*(1.-uRain);
+      vec2 uv=d.xz/(max(h,0.)+.12)*1.1+uTime*vec2(.012,.004);
+      float c=fb(uv);if(uLow<.5)c=c*.65+fb(uv*2.7+3.)*.35;float cov=mix(.56,.34,uRain);
+      float m=smoothstep(cov,cov+.26,c)*smoothstep(.0,.12,h);
+      vec3 cc=mix(vec3(.98,.98,1.),vec3(.62,.66,.72),smoothstep(cov+.1,cov+.5,c));cc=mix(cc,vec3(.45,.48,.52),uRain*.7);
+      col=mix(col,cc,m*.92);
+      gl_FragColor=vec4(col,1.);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>}`})));
+
+// --- partes de sombreador compartidas: niebla de páramo que deriva, color de niebla con el sol, viento ---
+const U_COM={uTime:skyU.uTime,uLow:skyU.uLow,uSun:skyU.uSun,uRain:skyU.uRain,uWind:{value:.1}};
+const GLSL_NIEBLA=`float niebla(vec3 wp,float fd){vec2 q=wp.xz*.028+uTime*vec2(.016,.005);
+  float n=fb(q)*.7+fb(q*2.3+5.)*.3;
+  return smoothstep(.44,.8,n)*smoothstep(24.,75.,fd)*(1.-smoothstep(8.,20.,wp.y))*.6;}
+float cl_(vec2 p,float t){p+=vec2(ns(p*.6+t*.15),ns(p*.6+vec2(4.,1.)-t*.13))*2.2;
+  float a=sin(p.x*2.1+t*.9)*sin(p.y*2.3-t*.7);return pow(1.-abs(a),7.);}
+float caust(vec2 p,float t){return min(1.2,(cl_(p,t)+cl_(p*1.37+vec2(5.3,1.7),t*1.15))*.6);}`;
+function comun(sh,viento=0){
+  Object.assign(sh.uniforms,U_COM);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime,uWind;varying vec3 vMW;')
+    .replace('#include <project_vertex>',`#include <project_vertex>
+    { vec4 q_=vec4(transformed,1.);
+    #ifdef USE_INSTANCING
+      q_=instanceMatrix*q_;
+    #endif
+      vMW=(modelMatrix*q_).xyz; }`);
+  if(viento) sh.vertexShader=sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+    { vec2 ip=vec2(0.);
+    #ifdef USE_INSTANCING
+      ip=vec2(instanceMatrix[3][0],instanceMatrix[3][2]);
+    #endif
+      float hw=max(position.y,0.),sw=sin(uTime*1.7+ip.x*.37+ip.y*.23)+.45*sin(uTime*3.1+ip.x*.9-ip.y*.4);
+      transformed.x+=sw*uWind*${viento.toFixed(2)}*hw*hw; transformed.z+=sw*uWind*${(viento*.6).toFixed(2)}*hw*hw; }`);
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uTime,uLow,uRain;uniform vec3 uSun;varying vec3 vMW;\n'+GLSL_N+'\n'+GLSL_NIEBLA)
+    .replace('#include <fog_fragment>',`#ifdef USE_FOG
+    { float fd=length(vMW-cameraPosition),ff=smoothstep(fogNear,fogFar,fd);
+      vec3 vd=normalize(vMW-cameraPosition);
+      vec3 fc=fogColor+vec3(.32,.24,.12)*pow(max(dot(vd,uSun),0.),5.)*(1.-uRain);
+      float mn=uLow<.5?niebla(vMW,fd):0.;
+      vec3 mc=mix(fc,vec3(.84,.87,.9)*(1.-.35*uRain),.5);
+      #ifdef TONE_MAPPING
+        fc=toneMapping(fc); mc=toneMapping(mc);
+      #endif
+      fc=linearToOutputTexel(vec4(fc,1.)).rgb; mc=linearToOutputTexel(vec4(mc,1.)).rgb;
+      gl_FragColor.rgb=mix(gl_FragColor.rgb,mc,mn); gl_FragColor.rgb=mix(gl_FragColor.rgb,fc,ff); }
+    #endif`);
+}
+const dosCaras=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
+function parchar(mat,clave,viento=0,extra=null){mat.onBeforeCompile=sh=>{comun(sh,viento);if(extra)extra(sh);};mat.customProgramCacheKey=()=>'chz-'+clave;return mat;}
+
+// --- ruido ---
+function hash(x,y){const s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s);}
+function vnoise(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),dd=hash(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+dd)*u*v;}
+function fbm(x,y){let s=0,a=1,f=1;for(let i=0;i<5;i++){s+=a*vnoise(x*f,y*f);a*=.5;f*=2.03;}return s;}
+const ss=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+
+// --- terreno: cauce principal (río Chuza) + dos brazos, cerrado por la presa en x = DAMX ---
+const DAMX=16, Y0=-5.6, Y1=1.0;      // y del agua: 0 % -> Y0, 100 % -> Y1
+const BED0=-6.4, PEND=.12, RIM=4.6;  // cota del lecho en la presa, pendiente del lecho, cota de las laderas
+const yDe=p=>Y0+(Y1-Y0)*Math.pow(Math.max(p,0)/100,.6);
+const SEG=[];
+function cauce(pts,s0,dir=1){let s=s0;for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  SEG.push({ax:a[0],az:a[1],dx:b[0]-a[0],dz:b[1]-a[1],L2:L*L,sa:s,sb:s+dir*L,wa:a[2],wb:b[2]});s+=dir*L;}return s;}
+const PRINCIPAL=[[16,0,2.7],[11,.8,5],[4,2.2,7.6],[-4,-.5,8.6],[-13,1.5,7.8],[-23,-1,6.4],[-33,2,4.8],[-43,0,3]];
+cauce(PRINCIPAL,0);
+const sEn=i=>{let s=0;for(let k=0;k<i;k++)s+=Math.hypot(PRINCIPAL[k+1][0]-PRINCIPAL[k][0],PRINCIPAL[k+1][1]-PRINCIPAL[k][1]);return s;};
+cauce([[-4,-.5,5.4],[-8,-9,5],[-14,-17,4.2],[-22,-23,2.8]],sEn(3));
+cauce([[-13,1.5,5.2],[-16,10,4.8],[-23,17,3.8],[-32,21,2.6]],sEn(4));
+cauce([[16,0,2.7],[40,-2,2.8],[80,-7,3]],0,-1);                       // cañón aguas abajo
+const lecho=s=>s>=0?BED0+PEND*s:BED0-3.4*ss(0,5,-s)+.1*s;
+function altura(x,z){
+  let best=1e9,wall=1;
+  for(let i=0;i<SEG.length;i++){const g=SEG[i];let u=((x-g.ax)*g.dx+(z-g.az)*g.dz)/g.L2;u=u<0?0:u>1?1:u;
+    const px=g.ax+g.dx*u-x,pz=g.az+g.dz*u-z,dist=Math.sqrt(px*px+pz*pz),W=g.wa+(g.wb-g.wa)*u;
+    const w=1-Math.exp(-Math.pow(dist/W,2.2)),b=lecho(g.sa+(g.sb-g.sa)*u),h=b+(RIM-b)*w; if(h<best){best=h;wall=w;}}
+  let h=best+(fbm(x*.07+3,z*.07)-.72)*5*wall*wall*wall;                      // colinas del páramo
+  h+=(fbm(x*.28,z*.28)-.95)*.6*(.1+.9*wall)+(vnoise(x*1.3+5,z*1.3)-.5)*.22*wall;                         // rugosidad
+  return h;
+}
+const TG=new THREE.PlaneGeometry(190,130,380,260); TG.rotateX(-Math.PI/2); TG.translate(-2,0,0);
+const pos=TG.attributes.position, cols=[];
+const cPar=new THREE.Color(0x586832),cPar2=new THREE.Color(0x8b8443),cDark=new THREE.Color(0x3c4e2c),cRock=new THREE.Color(0x77756d),cHi=new THREE.Color(0x676b5c),cc=new THREE.Color();
+for(let i=0;i<pos.count;i++){
+  const x=pos.getX(i),z=pos.getZ(i),y=altura(x,z); pos.setY(i,y);
+  const n=fbm(x*.2,z*.2)/1.94, n2=vnoise(x*.6+9,z*.6);
+  cc.copy(cPar).lerp(cPar2,ss(.3,.75,n)).lerp(cDark,ss(.55,.9,n2)*.6);
+  cc.lerp(cRock,ss(9,15,y)*.8).lerp(cHi,ss(13,19,y)*n);
+  cc.convertSRGBToLinear(); cols.push(cc.r,cc.g,cc.b);
+}
+TG.setAttribute('color',new THREE.Float32BufferAttribute(cols,3)); TG.computeVertexNormals();
+// oclusión ambiental: para cada vértice se mide cuánto cielo tapan las laderas vecinas (8 direcciones)
+const TNX=381,TNZ=261,TX0=-97,TZ0=-65,TC=.5, HGT=new Float32Array(pos.count), AO=new Float32Array(pos.count);
+for(let i=0;i<pos.count;i++)HGT[i]=pos.getY(i);
+{const PAS=[2,4,7,11,17,26],DIR=[];for(let k=0;k<8;k++){const a=k/8*Math.PI*2+.3;DIR.push([Math.cos(a),Math.sin(a)]);}
+ for(let iz=0;iz<TNZ;iz++)for(let ix=0;ix<TNX;ix++){const i=iz*TNX+ix,h0=HGT[i];let occ=0;
+  for(const [cx,cz] of DIR){let m=0;for(const st of PAS){const jx=Math.round(ix+cx*st),jz=Math.round(iz+cz*st);
+    if(jx<0||jz<0||jx>=TNX||jz>=TNZ)break;const sl=(HGT[jz*TNX+jx]-h0)/(st*TC);if(sl>m)m=sl;}occ+=m/Math.sqrt(1+m*m);}
+  AO[i]=Math.pow(1-occ/8,1.4);}}
+TG.setAttribute('aAO',new THREE.BufferAttribute(AO,1));
+function hMalla(x,z){const fx=Math.min(TNX-1.001,Math.max(0,(x-TX0)/TC)),fz=Math.min(TNZ-1.001,Math.max(0,(z-TZ0)/TC)),ix=Math.floor(fx),iz=Math.floor(fz),u=fx-ix,v=fz-iz;
+  const a=HGT[iz*TNX+ix],b=HGT[(iz+1)*TNX+ix],c=HGT[(iz+1)*TNX+ix+1],d=HGT[iz*TNX+ix+1];
+  return u+v<=1?a+(d-a)*u+(b-a)*v:c+(b-c)*(1-u)+(d-c)*(1-v);}
+function aoEn(x,z){const fx=Math.min(TNX-1.001,Math.max(0,(x-TX0)/TC)),fz=Math.min(TNZ-1.001,Math.max(0,(z-TZ0)/TC)),ix=Math.floor(fx),iz=Math.floor(fz),u=fx-ix,v=fz-iz,i=iz*TNX+ix;
+  return (AO[i]*(1-u)+AO[i+1]*u)*(1-v)+(AO[i+TNX]*(1-u)+AO[i+TNX+1]*u)*v;}
+// el lecho expuesto, la franja húmeda y las curvas de 36 % y 70 % se pintan en el sombreador según el nivel del agua
+const terrU={uWater:{value:yDe(PTS[0][1])},uFull:{value:Y1},uY36:{value:yDe(DZ)},uY70:{value:yDe(META)},uLines:{value:1},uAvg:{value:yDe(PROM)},uAvgOn:{value:0},uTime:skyU.uTime,uCloud:{value:1},uLow:skyU.uLow};
+const terrMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.96,metalness:0});
+terrMat.extensions={derivatives:true};
+terrMat.customProgramCacheKey=()=>'chz-terreno';
+terrMat.onBeforeCompile=sh=>{comun(sh);Object.assign(sh.uniforms,terrU);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;varying float vNy;attribute float aAO;varying float vAO;')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.)).xyz;vNy=normal.y;vAO=aAO;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;varying float vNy;uniform float uWater,uFull,uY36,uY70,uLines,uAvg,uAvgOn,uCloud;varying float vAO;\nvec3 L(vec3 c){return pow(c,vec3(2.2));}')
+    .replace('#include <color_fragment>',`#include <color_fragment>
+    float yy=vWP.y; float basin=1.-step(${(DAMX+.3).toFixed(1)},vWP.x);
+    float gn=fract(sin(dot(floor(vWP.xz*2.5),vec2(12.9898,78.233)))*43758.5453);
+    float d1=ns(vWP.xz*1.6),d2=ns(vWP.xz*6.5),d3=uLow<.5?fb(vWP.xz*.22+4.):ns(vWP.xz*.4+4.);
+    diffuseColor.rgb*=.72+.36*d1+.2*(d2-.5);                           // moteado del pajonal
+    diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.22,1.12,.8),smoothstep(.5,.72,d3)*.6);   // parches secos
+    diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.62,.8,.6),smoothstep(.5,.3,d3)*.6);        // turberas más oscuras
+    float rock=smoothstep(.84,.6,vNy+(d1-.5)*.12);
+    diffuseColor.rgb=mix(diffuseColor.rgb,L(vec3(.41,.4,.37))*(.8+.4*d2),rock*.8);
+    vec3 sed=L(mix(vec3(.45,.38,.29),vec3(.68,.61,.49),clamp((yy-uWater)/(uFull-uWater+.001),0.,1.)*.8+(gn-.5)*.14))*(.85+.3*d2);
+    sed*=.95+.05*sin(yy*30.+d1*2.);                                   // marcas horizontales que deja el agua al bajar
+    float ex=(1.-smoothstep(uFull-.05,uFull+.3,yy))*basin;
+    diffuseColor.rgb=mix(diffuseColor.rgb,sed,ex);
+    diffuseColor.rgb*=mix(1.,.58,(1.-smoothstep(uWater,uWater+.3,yy))*basin);   // franja húmeda
+    float dw=uWater-yy, wetR=step(0.,-dw)*(1.-smoothstep(uWater,uWater+.35,yy))*basin;
+    if(dw>0.&&basin>.5){
+      diffuseColor.rgb*=mix(vec3(1.),vec3(.45,.7,.76),1.-exp(-dw*1.3));          // el agua absorbe primero el rojo
+      if(uLow<.5)diffuseColor.rgb*=1.+caust(vWP.xz*1.15,uTime)*.7*smoothstep(0.,.25,dw)*exp(-dw*1.2)*uCloud;  // luz enfocada por las olas
+    }
+    float fw=fwidth(yy)*1.3+.006;
+    float dry=step(uWater,yy);
+    float l36=(1.-smoothstep(fw*.5,fw,abs(yy-uY36)))*basin*uLines*dry;
+    float l70=(1.-smoothstep(fw*.5,fw,abs(yy-uY70)))*basin*uLines*dry;
+    float lav=(1.-smoothstep(fw*.5,fw,abs(yy-uAvg)))*basin*uAvgOn;
+    float cs=uLow<.5?smoothstep(.5,.72,fb(vWP.xz*.03+uTime*vec2(.012,.004)*9.)):0.;
+    diffuseColor.rgb*=mix(1.,.6,cs*uCloud);                            // sombras de nubes que se mueven
+    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.34,.012,.012),l36*.95);
+    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.0,.24,.075),l70*.95);
+    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.13,.05,.38),lav*.95);`)
+    .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+    if(uLow<.5){ // relieve fino: grietas y terrones que la malla no alcanza a dibujar
+      float dz=length(vViewPosition), fino=1.-smoothstep(18.,45.,dz), em=smoothstep(.55,.85,vNy);
+      float bh=(ns(vWP.xz*2.3)*.6+ns(vWP.xz*6.3+3.)*.3*fino)*(.035+.06*rock)*em*(1.-ex*.5);
+      vec3 sx=dFdx(-vViewPosition),sy=dFdy(-vViewPosition),r1=cross(sy,normal),r2=cross(normal,sx);
+      float det=dot(sx,r1); vec2 dh=vec2(dFdx(bh),dFdy(bh));
+      normal=normalize(abs(det)*normal-sign(det)*(dh.x*r1+dh.y*r2)); }`)
+    .replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+    roughnessFactor=mix(roughnessFactor,.3,wetR*.85);`)
+    .replace('#include <aomap_fragment>',`#include <aomap_fragment>
+    reflectedLight.indirectDiffuse*=vAO; reflectedLight.directDiffuse*=mix(1.,vAO,.4);`);};
+const terrain=new THREE.Mesh(TG,terrMat); terrain.castShadow=true; terrain.receiveShadow=true; scene.add(terrain);
+
+// --- presa de Golillas: enrocado con cara de concreto aguas arriba ---
+const CREST=Y1+1.2, DBASE=-14, DAMW=13;
+const damShape=new THREE.Shape(); damShape.moveTo(-3.6,DBASE); damShape.lineTo(4.6,DBASE); damShape.lineTo(.9,CREST); damShape.lineTo(-.9,CREST); damShape.closePath();
+const dam=new THREE.Mesh(new THREE.ExtrudeGeometry(damShape,{depth:DAMW,bevelEnabled:false}),parchar(new THREE.MeshStandardMaterial({color:0x8d877a,roughness:.95,flatShading:true}),'presa'));
+dam.position.set(DAMX,0,-DAMW/2); dam.castShadow=true; dam.receiveShadow=true; scene.add(dam);
+const faceX=y=>-3.6+(y-DBASE)*(2.7/(CREST-DBASE));                    // x de la cara aguas arriba a la altura y
+const fLen=Math.hypot(2.7,CREST-DBASE), fAng=Math.atan2(2.7,CREST-DBASE);
+const face=new THREE.Mesh(new THREE.BoxGeometry(.14,fLen,DAMW),parchar(new THREE.MeshStandardMaterial({color:0xcfcabd,roughness:.8}),'cara'));
+face.position.set(DAMX+faceX((CREST+DBASE)/2)-.05,(CREST+DBASE)/2,0); face.rotation.z=-fAng; face.receiveShadow=true; scene.add(face);
+const road=new THREE.Mesh(new THREE.BoxGeometry(1.9,.14,DAMW),parchar(new THREE.MeshStandardMaterial({color:0x4a4c50,roughness:.9}),'via')); road.position.set(DAMX,CREST+.05,0); scene.add(road);
+[-.92,.92].forEach(o=>{const p=new THREE.Mesh(new THREE.BoxGeometry(.1,.3,DAMW),new THREE.MeshStandardMaterial({color:0xd9d5ca}));p.position.set(DAMX+o,CREST+.24,0);scene.add(p);});
+// regla de niveles pintada en la cara de concreto
+const levelMarks=[];
+[[36,0xf87171,.16],[70,0x34d399,.16],[100,0xffffff,.06]].forEach(([p,c,h])=>{const y=yDe(p);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(.1,h,DAMW*.62),new THREE.MeshBasicMaterial({color:c})); m.position.set(DAMX+faceX(y)-.16,y,0); m.rotation.z=-fAng; scene.add(m); levelMarks.push(m);});
+for(let p=10;p<100;p+=10){if(p===70)continue;const y=yDe(p);const m=new THREE.Mesh(new THREE.BoxGeometry(.08,.05,1.3),new THREE.MeshBasicMaterial({color:0x5b5d60}));m.position.set(DAMX+faceX(y)-.15,y,0);m.rotation.z=-fAng;scene.add(m);}
+
+// --- agua: sombreador propio con profundidad (orilla, espuma, color) y reflejo del cielo ---
+const WX0=-50, WX1=DAMX+.2, WZ0=-30, WZ1=27;
+const WG=new THREE.PlaneGeometry(WX1-WX0,WZ1-WZ0,264,228); WG.rotateX(-Math.PI/2); WG.translate((WX0+WX1)/2,0,(WZ0+WZ1)/2);
+{const p=WG.attributes.position,h=new Float32Array(p.count);for(let i=0;i<p.count;i++)h[i]=altura(p.getX(i),p.getZ(i));WG.setAttribute('aH',new THREE.BufferAttribute(h,1));}
+const uTime={value:0}; skyU.uSun.value.copy(SUN_DIR);
+// reflejo plano: cada cuadro se dibuja la escena desde una cámara espejo bajo el agua
+const reflRT=new THREE.WebGLRenderTarget(16,16,{type:renderer.capabilities.isWebGL2?THREE.HalfFloatType:THREE.UnsignedByteType});
+const texM=new THREE.Matrix4(), mCam=new THREE.PerspectiveCamera(), mTgt=new THREE.Vector3(), clipPl=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+let reflOn=true;
+const BOCAS=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];   // x, z, activa (1/0)
+function aguaMat(shallow,deep,op){return new THREE.ShaderMaterial({transparent:true,depthWrite:false,
+  uniforms:{uTime,uShallow:{value:new THREE.Color(shallow).convertSRGBToLinear()},uDeep:{value:new THREE.Color(deep).convertSRGBToLinear()},uOp:{value:op},uTop:skyU.uTop,uHor:skyU.uHor,
+    uSun:{value:SUN_DIR},uSunI:{value:1},uFogN:{value:70},uFogF:{value:190},uFlat:{value:0},uRain:skyU.uRain,uLow:skyU.uLow,uRefl:{value:reflRT.texture},uTexM:{value:texM},uReflOn:{value:1},uWind:U_COM.uWind,uBoca:{value:BOCAS}},
+  vertexShader:`attribute float aH;uniform float uTime;uniform mat4 uTexM;varying vec3 vWP;varying float vH;varying vec4 vRP;
+    void main(){vH=aH;vec4 wp=modelMatrix*vec4(position,1.);vRP=uTexM*wp;wp.y+=(sin(wp.x*.9+uTime*1.1)+cos(wp.z*1.1+uTime*.9))*.02;vWP=wp.xyz;gl_Position=projectionMatrix*viewMatrix*wp;}`,
+  fragmentShader:`uniform vec3 uShallow,uDeep,uTop,uHor,uSun;uniform float uTime,uOp,uSunI,uFogN,uFogF,uFlat,uRain,uLow,uReflOn,uWind;uniform sampler2D uRefl;uniform vec3 uBoca[3];varying vec3 vWP;varying float vH;varying vec4 vRP;
+    ${GLSL_N}
+    ${GLSL_NIEBLA}
+    vec2 gota(vec2 p,float t){vec2 c=floor(p),f=fract(p)-.5;float r=hs(c),ph=fract(t*.9+r*7.),d=length(f-(vec2(hs(c+3.),hs(c+8.))-.5)*.5);
+      float w=sin((d-ph*.45)*46.)*smoothstep(.06,.0,abs(d-ph*.45))*(1.-ph);return normalize(f+1e-4)*w;}
+    void main(){float depth=vWP.y-vH;if(depth<0.)discard;
+      vec2 p=vWP.xz;float t=uTime;float fd=length(cameraPosition-vWP);
+      float lod=1.-smoothstep(18.,75.,fd);                       // lejos el agua se ve más lisa (y sin parpadeo)
+      float amp=.6+2.4*uWind;                                     // más oleaje con viento y lluvia
+      vec2 g=vec2(0.);
+      for(int i=0;i<8;i++){float fi=float(i);                     // olas que vienen de una dirección general, con dispersión
+        float an=.4+(hs(vec2(fi,3.))-.5)*1.9; vec2 dr=vec2(cos(an),sin(an));
+        float k=.8+fi*.9+hs(vec2(fi,7.))*.7, w=sqrt(9.8*k)*.5, A=.05/(1.+fi*.6);
+        g+=A*k*cos(dot(dr,p)*k+t*w+hs(vec2(fi,1.))*6.28)*dr*(i<3?1.:lod);}
+      g*=amp;
+      if(uLow<.5){vec2 q=p*3.2+vec2(t*.45,t*.18),q2=p*7.5-vec2(t*.3,-t*.5);float e=.07;   // rizos finos
+        g+=(vec2(ns(q+vec2(e,0.))-ns(q-vec2(e,0.)),ns(q+vec2(0.,e))-ns(q-vec2(0.,e)))*.03
+           +vec2(ns(q2+vec2(e,0.))-ns(q2-vec2(e,0.)),ns(q2+vec2(0.,e))-ns(q2-vec2(0.,e)))*.014)/(2.*e)*lod*amp;}
+      if(uRain>.02&&uLow<.5)g+=(gota(p*1.3,t)+gota(p*2.1+5.,t+.4))*.35*uRain;
+      float mb=1.;vec2 rd=vec2(0.);                               // cerca de cada desembocadura
+      for(int i=0;i<3;i++)if(uBoca[i].z>.5){vec2 dv=p-uBoca[i].xy;float dl=length(dv),m=smoothstep(.5,4.5,dl);
+        if(m<mb){mb=m;rd=dv/max(dl,.01)*sin(dl*5.-t*3.2)*(1.-m)*smoothstep(0.,.8,dl);}}
+      g+=rd*.09;                                                  // ondas que abre la corriente al entrar
+      vec3 N=normalize(vec3(-g.x,1.,-g.y));vec3 V=normalize(cameraPosition-vWP);
+      float fres=.02+.98*pow(1.-max(dot(N,V),0.),5.);
+      vec3 R=reflect(-V,N);R.y=abs(R.y);vec3 sky=mix(uHor,uTop,smoothstep(0.,.6,R.y));
+      if(uReflOn>.5){vec2 ru=vRP.xy/vRP.w+g*.035;sky=texture2D(uRefl,clamp(ru,.002,.998)).rgb;}
+      float sd=max(dot(R,uSun),0.);
+      float spec=(pow(sd,900.)*12.+pow(sd,120.)*.7+pow(sd,16.)*.08)*uSunI;   // destellos del sol sobre las olas
+      float ab=1.-exp(-depth*1.05);                              // absorción: más azul oscuro cuanto más hondo
+      vec3 col=mix(uShallow,uDeep,ab);
+      col+=uShallow*.35*max(0.,dot(normalize(vec2(N.x,N.z)+1e-4),normalize(uSun.xz)))*length(g)*(1.-ab*.6)*uSunI;  // luz que atraviesa las crestas
+      float cs=uLow<.5?smoothstep(.5,.72,fb(p*.03+t*vec2(.012,.004)*9.)):0.;col*=mix(1.,.7,cs*(1.-uRain*.6));
+      col=mix(col,sky,min(mix(fres,.06+.94*fres,uReflOn),.9)*(1.-uFlat))+spec*(1.-uFlat);
+      float sh=1.-smoothstep(0.,.34,depth);                      // espuma: borde fijo + franjas que llegan a la orilla
+      float band=smoothstep(.55,.95,sin(depth*30.-t*2.2+ns(p*2.2+t*.15)*5.)*.5+.5)*sh*ns(p*4.5-t*.3)*1.5;
+      float edge=(1.-smoothstep(0.,.05,depth))*(.25+.5*ns(p*9.+t*.7));
+      float foam=clamp(max(edge,band*.8),0.,1.)*mb;                // sin espuma donde entra el río
+      col=mix(col,col*vec3(1.1,1.05,.88)+vec3(.014,.013,.004),(1.-mb)*(1.-ab)*.7);   // agua del río, algo más turbia
+      col=mix(col,vec3(.93,.96,.97),foam*.75*(1.-uFlat));
+      float a=max(mix(.16,.97,smoothstep(0.,1.25,depth)),max(foam*.9,fres));
+      if(uLow<.5)col=mix(col,mix(uHor,vec3(.84,.87,.9)*(1.-.35*uRain),.5),niebla(vWP,fd));
+      col=mix(col,uHor,smoothstep(uFogN,uFogF,fd));
+      gl_FragColor=vec4(col,a*uOp);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>}`});}
+const waterMat=aguaMat(0x4fa7a6,0x0c3f66,1);
+const water=new THREE.Mesh(WG,waterMat); water.renderOrder=2; scene.add(water);
+const scenMat=aguaMat(0xf0a050,0xc2470c,.94); scenMat.uniforms.uReflOn.value=0;
+const scenWater=new THREE.Mesh(WG,scenMat); scenWater.visible=false; scenWater.renderOrder=1; scene.add(scenWater);
+const ghostMat=aguaMat(0xb9a2ff,0x9b7df5,.3); ghostMat.uniforms.uFlat.value=1; ghostMat.uniforms.uReflOn.value=0;
+const ghost=new THREE.Mesh(WG,ghostMat); ghost.visible=false; ghost.renderOrder=3; scene.add(ghost);
+
+// --- vegetación del páramo: frailejones (tronco de hojas secas, roseta plateada, flores), pajonal y rocas ---
+const lin=v=>Math.pow(v,2.2);
+function unir(geos){geos=geos.map(g=>g.index?g.toNonIndexed():g);let n=0;geos.forEach(g=>n+=g.attributes.position.count);
+  const Pp=new Float32Array(n*3),Nn=new Float32Array(n*3),Cc=new Float32Array(n*3);let o=0;
+  geos.forEach(g=>{const c=g.attributes.position.count;Pp.set(g.attributes.position.array,o*3);Nn.set(g.attributes.normal.array,o*3);
+    if(g.attributes.color)Cc.set(g.attributes.color.array,o*3);else Cc.fill(1,o*3,(o+c)*3);o+=c;});
+  const G=new THREE.BufferGeometry();G.setAttribute('position',new THREE.BufferAttribute(Pp,3));G.setAttribute('normal',new THREE.BufferAttribute(Nn,3));G.setAttribute('color',new THREE.BufferAttribute(Cc,3));return G;}
+function pintar(g,f){const p=g.attributes.position,c=new Float32Array(p.count*3);
+  for(let i=0;i<p.count;i++){const k=f(p.getX(i),p.getY(i),p.getZ(i));c[i*3]=lin(k[0]);c[i*3+1]=lin(k[1]);c[i*3+2]=lin(k[2]);}
+  g.setAttribute('color',new THREE.BufferAttribute(c,3));return g;}
+function normalesDesde(g,cx,cy,cz,ky=1){const p=g.attributes.position,n=g.attributes.normal,v=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){v.set(p.getX(i)-cx,(p.getY(i)-cy)*ky,p.getZ(i)-cz).normalize();n.setXYZ(i,v.x,v.y,v.z);}return g;}
+const mezcla=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+// hoja lanceolada con nervio central
+function hoja(L,w){const g=new THREE.BufferGeometry(),r=.03;
+  g.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-w,L*.42,.012,0,L*.5,r, 0,0,0,0,L*.5,r,w,L*.42,.012,
+    -w,L*.42,.012,0,L,0,0,L*.5,r, 0,L*.5,r,0,L,0,w,L*.42,.012],3));g.computeVertexNormals();return g;}
+// roseta: tres anillos de hojas, las de afuera más abiertas
+const rosHojas=[];
+[[10,1.12,.44,.078],[8,.72,.4,.072],[6,.34,.31,.062]].forEach(([n,tilt,L,w],r)=>{for(let k=0;k<n;k++){
+  const g=hoja(L*(.9+rnd()*.2),w);g.rotateX(tilt+(rnd()-.5)*.15);g.rotateY(k/n*Math.PI*2+r*.4+(rnd()-.5)*.2);g.translate(0,r*.025,0);rosHojas.push(g);}});
+const rosG=normalesDesde(unir(rosHojas),0,-.12,0,1.4);
+pintar(rosG,(x,y,z)=>{const t=Math.min(1,Math.hypot(x,y,z)/.42);return mezcla([.55,.6,.38],[.72,.76,.63],t);});
+// tronco cubierto de hojas secas (falda), con borde irregular
+const trG=new THREE.LatheGeometry([[0,0],[.085,0],[.095,.25],[.105,.55],[.12,.8],[.155,.93],[.12,1]].map(([r,y])=>new THREE.Vector2(r,y)),9);
+{const p=trG.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),a=Math.atan2(z,x),k=1+.22*(vnoise(a*2.2+5,y*11)-.5)*2*(y>.02?1:0);p.setXYZ(i,x*k,y,z*k);}trG.computeVertexNormals();}
+pintar(trG,(x,y,z)=>{const n=vnoise(Math.atan2(z,x)*3.5,y*16);return mezcla(mezcla([.3,.27,.22],[.48,.44,.37],n),[.58,.54,.45],Math.max(0,(y-.78)*4));});
+// varas florales amarillas
+const flHojas=[];
+for(let k=0;k<3;k++){const az=k/3*Math.PI*2+rnd(),inc=.18+rnd()*.2,L=.5+rnd()*.25;
+  const tallo=new THREE.CylinderGeometry(.01,.014,L,4);tallo.translate(0,L/2,0);
+  const cab=new THREE.IcosahedronGeometry(.038,1);cab.translate(0,L+.02,0);
+  const cab2=new THREE.IcosahedronGeometry(.028,1);cab2.translate(.05,L*.8,0);
+  [tallo,cab,cab2].forEach((g,j)=>{g.rotateZ(inc);g.rotateY(az);const q=g.index?g.toNonIndexed():g;pintar(q,()=>j?[.96,.78,.16]:[.45,.5,.3]);flHojas.push(q);});}
+const flG=unir(flHojas);
+// macolla de pajonal: hojas finas que se abren y se curvan
+function macolla(){const gs=[];for(let k=0;k<11;k++){const a=k/11*Math.PI*2+rnd()*.5,tilt=.12+rnd()*.6,L=.3+rnd()*.32,w=.02,tono=.82+rnd()*.3;
+  const pts=[[-w,0],[w,0],[-w*.55,L*.5],[w*.55,L*.5],[0,L]].map(([x,y])=>[x,y,Math.pow(y/L,2)*L*.35]);
+  const ix=[0,1,3,0,3,2,2,3,4],v=[];ix.forEach(i=>v.push(...pts[i]));
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.computeVertexNormals();
+  g.rotateX(tilt);g.rotateY(a);
+  pintar(g,(x,y,z)=>mezcla([.36*tono,.33*tono,.17*tono],[.86*tono,.76*tono,.45*tono],Math.min(1,y/.45)));gs.push(g);}
+  return normalesDesde(unir(gs),0,-.9,0,1);}
+const pajaG=macolla();
+// roca irregular
+const rocaG=new THREE.IcosahedronGeometry(.3,1);
+{const p=rocaG.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=.75+.5*vnoise(x*7+11,z*7+y*5);p.setXYZ(i,x*k,y*k*.8,z*k);}rocaG.computeVertexNormals();}
+
+const M=new THREE.Matrix4(),Q=new THREE.Quaternion(),S=new THREE.Vector3(),P=new THREE.Vector3(),E=new THREE.Euler();
+const NF=1500,NP=9000,NR=420;
+const trunk=new THREE.InstancedMesh(trG,parchar(new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}),'tronco'),NF);
+const crown=new THREE.InstancedMesh(rosG,parchar(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.72,side:THREE.DoubleSide}),'roseta',.5,dosCaras),NF);
+const flores=new THREE.InstancedMesh(flG,parchar(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8}),'flores',.35),NF);
+const paja=new THREE.InstancedMesh(pajaG,parchar(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95,side:THREE.DoubleSide}),'paja',1.3,dosCaras),NP);
+const rocas=new THREE.InstancedMesh(rocaG,parchar(new THREE.MeshStandardMaterial({color:0x7c7a73,roughness:.95,flatShading:true}),'roca'),NR);
+const florDe=[];
+let nf=0,np=0,nr=0,nfl=0,tries=0;
+const tinte=(r,g,b,ao)=>{const k=Math.pow(ao,1/2.2);return cc.setRGB(r*k,g*k,b*k);};
+while((nf<NF||np<NP||nr<NR)&&tries<260000){tries++;const x=-62+rnd()*100,z=-46+rnd()*92,y=altura(x,z);
+  const slope=Math.hypot(altura(x+.6,z)-y,altura(x,z+.6)-y)/.6, enPresa=Math.abs(x-DAMX)<5&&Math.abs(z)<8;
+  if(enPresa) continue;
+  const ao=aoEn(x,z);
+  if(nr<NR&&(slope>.75||(y<Y1&&x<DAMX&&rnd()<.25))){const s=.35+rnd()*.75;S.set(s,s*.75,s);E.set(rnd()*3,rnd()*3,rnd()*3);Q.setFromEuler(E);P.set(x,y+.02,z);M.compose(P,Q,S);
+    rocas.setMatrixAt(nr,M);const g=.85+rnd()*.3;rocas.setColorAt(nr++,tinte(g,g,g*.97,ao));continue;}
+  if(y<Y1+.45||y>9||slope>.7) continue;
+  if(nf<NF&&rnd()<.35){const s=.42+rnd()*.42,hg=.25+Math.pow(rnd(),1.6)*1.35;
+    E.set((rnd()-.5)*.1,rnd()*6.28,(rnd()-.5)*.1);Q.setFromEuler(E);
+    S.set(s,s*hg,s);P.set(x,y-.05,z);M.compose(P,Q,S);trunk.setMatrixAt(nf,M);trunk.setColorAt(nf,tinte(.9+rnd()*.2,.9+rnd()*.2,.9+rnd()*.2,ao));
+    S.set(s,s,s);P.set(x,y-.05+s*hg*.97,z);M.compose(P,Q,S);crown.setMatrixAt(nf,M);crown.setColorAt(nf,tinte(.88+rnd()*.14,.92+rnd()*.1,.85+rnd()*.12,ao));
+    if(rnd()<.3){flores.setMatrixAt(nfl++,M);florDe.push(nf);}
+    nf++;}
+  else if(np<NP){const s=.55+rnd()*.75;E.set(0,rnd()*6.28,0);Q.setFromEuler(E);S.set(s,s*(.8+rnd()*.5),s);P.set(x,y-.03,z);M.compose(P,Q,S);
+    paja.setMatrixAt(np,M);const t=rnd();paja.setColorAt(np++,tinte(1.05-.25*t,.95,.75+.05*t,ao));}
+}
+trunk.count=crown.count=nf; flores.count=nfl; paja.count=np; rocas.count=nr;
+[trunk,crown,rocas].forEach(m=>{m.castShadow=true;m.receiveShadow=true;}); [paja,flores].forEach(m=>m.receiveShadow=true); scene.add(trunk,crown,flores,paja,rocas);
+renderer.shadowMap.needsUpdate=true;
+const aLineal=()=>scene.traverse(o=>{const m=o.material;if(!m||m.isShaderMaterial||m.userData.lin)return;m.userData.lin=1;if(m.color)m.color.convertSRGBToLinear();if(m.emissive)m.emissive.convertSRGBToLinear();
+  if(m.isMeshBasicMaterial||m.isSpriteMaterial||m.isLineBasicMaterial)m.toneMapped=false;if(m.map)m.map.encoding=THREE.sRGBEncoding;});
+
+// --- lluvia (trazos) ---
+const RN=1700,rg=new THREE.BufferGeometry(),rp=new Float32Array(RN*6),rbase=new Float32Array(RN*3);
+for(let i=0;i<RN;i++){rbase[i*3]=-52+rnd()*76;rbase[i*3+1]=rnd()*30-6;rbase[i*3+2]=-32+rnd()*62;}
+rg.setAttribute('position',new THREE.BufferAttribute(rp,3));
+const rain=new THREE.LineSegments(rg,new THREE.LineBasicMaterial({color:0xe6f2ff,transparent:true,opacity:0,depthWrite:false})); rain.frustumCulled=false; scene.add(rain);
+
+// --- etiquetas 3D ---
+const LABELS=[];
+function etiqueta(txt,{col='#eef5fa',bg='rgba(8,22,36,.8)',bd='rgba(160,200,230,.35)',h=1.2,depth=false}={}){
+  const c=document.createElement('canvas'),g=c.getContext('2d');
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:depth,depthWrite:false,fog:false})); sp.renderOrder=20;
+  sp.userData.set=t=>{sp.userData.txt=t;const F='700 52px "Space Grotesk",Inter,system-ui,sans-serif';g.font=F;const w=Math.ceil(g.measureText(t).width)+52;
+    if(c.width!==w||c.height!==84){c.width=w;c.height=84;} g.clearRect(0,0,w,84);g.font=F;
+    const r=22;g.beginPath();g.moveTo(r+2,2);g.arcTo(w-2,2,w-2,82,r);g.arcTo(w-2,82,2,82,r);g.arcTo(2,82,2,2,r);g.arcTo(2,2,w-2,2,r);g.closePath();
+    g.fillStyle=bg;g.fill();g.lineWidth=3;g.strokeStyle=bd;g.stroke();g.fillStyle=col;g.textBaseline='middle';g.textAlign='center';g.fillText(t,w/2,45);
+    tex.needsUpdate=true;sp.scale.set(h*w/84,h,1);};
+  sp.userData.set(txt); LABELS.push(sp); return sp;}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>LABELS.forEach(l=>l.userData.set(l.userData.txt)));
+const lbDam=etiqueta('Presa de Golillas',{h:1.25}); lbDam.position.set(DAMX+1,CREST+2.3,0); scene.add(lbDam);
+const lbRio=etiqueta('Río Chuza',{h:1.25,col:'#bfe6ff'}); lbRio.position.set(-41,altura(-41,0)+3.4,0); scene.add(lbRio);
+const lb36=etiqueta('36 % · día cero',{col:'#fecaca',bd:'rgba(248,113,113,.8)',h:.8}); lb36.position.set(DAMX-2.6,yDe(36)+.05,5.2); scene.add(lb36);
+const lb70=etiqueta('70 % · meta',{col:'#a7f3d0',bd:'rgba(52,211,153,.8)',h:.8}); lb70.position.set(DAMX-1.6,yDe(70)+.05,-5.4); scene.add(lb70);
+const lbNivel=etiqueta('16,3 %',{bg:'rgba(4,18,29,.9)',bd:'rgba(56,189,248,.9)',h:1}); scene.add(lbNivel);
+const lbAvg=etiqueta('Promedio 41,96 %',{col:'#ddd3ff',bd:'rgba(167,139,250,.9)',h:.95}); lbAvg.position.set(-4,yDe(PROM)+1.6,2); lbAvg.visible=false; scene.add(lbAvg);
+const lbReal=etiqueta('Real CAR',{col:'#fde68a',bd:'rgba(251,191,36,.9)',h:.95}); lbReal.visible=false; scene.add(lbReal);
+const lbSin=etiqueta('Sin racionamiento',{col:'#fed7aa',bd:'rgba(234,88,12,.9)',h:.95}); lbSin.visible=false; scene.add(lbSin);
+const lbVel=etiqueta('+0,0 m³/s',{bg:'rgba(4,18,29,.9)',h:1.5}); lbVel.visible=false; scene.add(lbVel);
+const boya=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,1.5,6),new THREE.MeshBasicMaterial({color:0x38bdf8})); scene.add(boya);
+
+// --- gráfica 3D del nivel: flota sobre el embalse y gira para mirar a la cámara ---
+const GC=new THREE.Vector3(-12,4,0), GCP=new THREE.Vector3(7,8.4,1), GCc=GC.clone(); let chS=1, chartP=false;
+// vista de la predicción: gráfica y agua en el mismo encuadre
+const VISTA_P=[[-26,22,28],[5,2,5.5]];
+const GW=42, GH=9.5, chart=new THREE.Group(); scene.add(chart);
+const gx=t=>-GW/2+t/TMAX*GW, gy=p=>Math.max(0,p)/100*GH;
+const bm=(c,o,extra={})=>new THREE.MeshBasicMaterial(Object.assign({color:c,transparent:true,opacity:o,side:THREE.DoubleSide,depthWrite:false,depthTest:false,fog:false},extra));
+const panel=new THREE.Mesh(new THREE.PlaneGeometry(GW+7,GH+3.2),bm(0x06141f,.42)); panel.position.set(-.6,GH/2-.1,-.05); panel.renderOrder=4.9; chart.add(panel);
+function franja(f,grosor){ // tira de triángulos: grosor>0 = línea gruesa, grosor=0 = relleno hasta la base
+  const v=[],ix=[];for(let i=0;i<=TMAX;i++){const y=gy(f(i));v.push(gx(i),grosor?y+grosor:y,0,gx(i),grosor?y-grosor:0,0);if(i<TMAX){const a=i*2;ix.push(a,a+1,a+2,a+1,a+3,a+2);}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setIndex(ix);return g;}
+let gData=null,gFill,gDim,gLine,gScen,gAvg,gPred=null,gPts=[];
+// todo lo que depende de los datos va en gData, que se rehace al editarlos
+function construirGrafica(){
+  if(gData){chart.remove(gData);gData.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}
+    const k=LABELS.indexOf(o);if(k>=0)LABELS.splice(k,1);});}
+  gData=new THREE.Group();chart.add(gData);const add=m=>{gData.add(m);return m;};
+  const rz=add(new THREE.Mesh(new THREE.PlaneGeometry(Math.max(.01,gx(T_END_RAT)-gx(T_INI)),GH),bm(0xf87171,.07))); rz.position.set((gx(T_INI)+gx(T_END_RAT))/2,GH/2,-.03);
+  gFill=add(new THREE.Mesh(franja(nivelReal,0),bm(0x38bdf8,.22)));
+  gDim=add(new THREE.Mesh(franja(nivelReal,.035),bm(0xcfe6f5,.4))); gDim.position.z=.01;
+  gLine=add(new THREE.Mesh(franja(nivelReal,.085),bm(0x5fd3ff,1))); gLine.position.z=.02;
+  gScen=add(new THREE.Mesh(franja(nivelSin,.07),bm(0xfb923c,1))); gScen.position.z=.03; gScen.visible=false;
+  const hline=(p,c,o,x0=0,x1=TMAX)=>{const w=gx(x1)-gx(x0),m=add(new THREE.Mesh(new THREE.PlaneGeometry(Math.max(.01,w),.05),bm(c,o)));m.position.set(gx(x0)+w/2,gy(p),.005);return m;};
+  hline(0,0xcfe6f5,.5);hline(100,0xcfe6f5,.2);hline(DZ,0xf87171,.85);hline(META,0x34d399,.85);
+  gAvg=hline(AVG.v,0xa78bfa,1,AVG.a,AVG.b); gAvg.visible=false;
+  const tag=(t,x,y,o)=>{const s=add(etiqueta(t,Object.assign({h:.95},o)));s.position.set(x,y,.1);return s;};
+  const mesA=t=>MES[mesN(t)]+' '+anio(t);
+  tag(fmt0(DZ)+' %',-GW/2-2.4,gy(DZ),{col:'#fecaca',bd:'rgba(248,113,113,.8)'}); tag(fmt0(META)+' %',-GW/2-2.4,gy(META),{col:'#a7f3d0',bd:'rgba(52,211,153,.8)'});
+  tag(mesA(0),-GW/2+2.2,-.85,{col:'#9db3c4'}); tag(mesA(TMAX),GW/2-2.2,-.85,{col:'#9db3c4'}); tag('Racionamiento',(gx(T_INI)+gx(T_END_RAT))/2,GH+.7,{col:'#f8a5a5',bd:'rgba(248,113,113,.5)'});
+  gPts=PTS.map(p=>{const m=add(new THREE.Mesh(new THREE.CircleGeometry(.2,20),bm(p[2]?0xffd58a:0xffffff,1)));m.position.set(gx(p[0]),gy(p[1]),.05);return m;});
+  gPred=null;
+  if(PRED_ON&&PR){ // tramo predicho en fucsia, con el dato real final como anillo
+    const pz=add(new THREE.Mesh(new THREE.PlaneGeometry(Math.max(.01,gx(PR.t1)-gx(PR.t0)),GH),bm(0xe879f9,.07)));pz.position.set((gx(PR.t0)+gx(PR.t1))/2,GH/2,-.03);
+    const v=[],ix=[];for(let i=PR.t0;i<=PR.t1;i++){const y=gy(nivelReal(i));v.push(gx(i),y+.09,0,gx(i),y-.09,0);if(i<PR.t1){const a=(i-PR.t0)*2;ix.push(a,a+1,a+2,a+1,a+3,a+2);}}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setIndex(ix);
+    gPred=add(new THREE.Mesh(g,bm(0xe879f9,1)));gPred.position.z=.025;
+    const ring=add(new THREE.Mesh(new THREE.RingGeometry(.2,.32,28),bm(0xffd58a,1)));ring.position.set(gx(PR.t1),gy(PR.real),.06);
+    tag('Predicción',(gx(PR.t0)+gx(PR.t1))/2,GH+.7,{col:'#f5d0fe',bd:'rgba(232,121,249,.6)'});
+    tag('Real CAR '+fmt(PR.real,2)+' %',gx(PR.t1)-3.2,gy(PR.real)-1.1,{col:'#fde68a',bd:'rgba(251,191,36,.8)'});}
+  gData.children.forEach((m,i)=>{if(!m.isSprite)m.renderOrder=5+i*.01;});
+  if(typeof aLineal==='function')aLineal();
+}
+construirGrafica();
+const gCur=new THREE.Mesh(new THREE.PlaneGeometry(.05,GH),bm(0xffffff,.55)); chart.add(gCur);
+const gDot=new THREE.Mesh(new THREE.CircleGeometry(.3,24),bm(0x38bdf8,1)); gDot.position.z=.07; chart.add(gDot);
+const gDotS=new THREE.Mesh(new THREE.CircleGeometry(.24,24),bm(0xfb923c,1)); gDotS.position.z=.07; gDotS.visible=false; chart.add(gDotS);
+[gCur,gDot,gDotS].forEach(m=>m.renderOrder=6);
+
+// --- signo de interrogación 3D (aparece con cada pregunta) ---
+function makeQ(color){const g=new THREE.Group();
+  const pts=[[-.58,.52],[-.5,.86],[-.2,1.08],[.2,1.08],[.52,.88],[.6,.55],[.44,.27],[.14,.08],[0,-.12],[0,-.42]].map(p=>new THREE.Vector3(p[0],p[1],0));
+  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.35,roughness:.25,metalness:.3});
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),70,.14,14),mat));
+  [pts[0],pts[pts.length-1]].forEach(p=>{const s=new THREE.Mesh(new THREE.SphereGeometry(.14,14,10),mat);s.position.copy(p);g.add(s);});
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(.18,18,12),mat);dot.position.y=-.82;g.add(dot);g.userData.mat=mat;return g;}
+const qMark=makeQ(0x38bdf8); qMark.scale.setScalar(0); qMark.position.set(4,4,0); scene.add(qMark);
+
+aLineal(); [trunk,crown,paja,rocas].forEach(m=>{const a=m.instanceColor.array;for(let i=0;i<a.length;i++)a[i]=Math.pow(a[i],2.2);});
+C_HOR.convertSRGBToLinear();C_ZEN.convertSRGBToLinear();C_HOR_R.convertSRGBToLinear();C_ZEN_R.convertSRGBToLinear();hemi.color.convertSRGBToLinear();hemi.groundColor.convertSRGBToLinear();sun.color.convertSRGBToLinear();
+
+// ================= ESTADO / UI =================
+let t=0, playing=false, speed=1, segEnd=null, showScen=false, curQ=-1, showChart=true, pres=false, fly=null;
+const $=id=>document.getElementById(id);
+const tl=$('tl');
+function construirLinea(){tl.querySelectorAll('.tick').forEach(e=>e.remove());$('months').innerHTML='';
+  PTS.forEach(p=>{const e=document.createElement('div');e.className='tick'+(p[2]?' v':'');e.style.left=(p[0]/TMAX*100)+'%';e.title=fecha(p[0])+': '+fmt(p[1],2)+' %'+(p[2]===2?' (dato real CAR, inicio de la predicción)':p[2]===3?' (dato real CAR, solo para comparar)':p[2]?' (validación)':'');tl.appendChild(e);});
+  if(PRED_ON&&PR){const e=document.createElement('div');e.className='tick v';e.style.left='100%';e.title=fecha(PR.t1)+': '+fmt(PR.real,2)+' % (dato real CAR para comparar)';tl.appendChild(e);
+    $('predb').style.display='block';$('predb').style.left=(PR.t0/TMAX*100)+'%';$('predb').style.width=((PR.t1-PR.t0)/TMAX*100)+'%';}
+  else $('predb').style.display='none';
+  $('rat').style.left=(T_INI/TMAX*100)+'%'; $('rat').style.width=((T_END_RAT-T_INI)/TMAX*100)+'%';
+  const x0=new Date(D0),L=[];for(let y=x0.getUTCFullYear(),m=x0.getUTCMonth()+1;;){const tt=Math.round((Date.UTC(y,m-1,1)-D0)/DAY);if(tt>TMAX)break;if(tt>=0)L.push([tt,y,m]);m++;if(m>12){m=1;y++;}}
+  const paso=Math.max(1,Math.ceil(L.length/18));
+  L.forEach(([tt,y,m],k)=>{if(k%paso)return;const s=document.createElement('span');s.style.left=(tt/TMAX*100)+'%';s.textContent=MES[m-1]+(m===1||k===0?" '"+String(y).slice(2):'');$('months').appendChild(s);});}
+construirLinea();
+function setT(v){t=Math.max(0,Math.min(TMAX,v));}
+function setPlay(v){playing=v;$('play').textContent=playing?'❚❚ Pausa':'▶ Reproducir';$('play').classList.toggle('on',playing);}
+let drag=false; const tFromX=x=>{const r=$('track').getBoundingClientRect();return (x-r.left)/r.width*TMAX;};
+tl.addEventListener('pointerdown',e=>{drag=true;segEnd=null;setT(tFromX(e.clientX));tl.setPointerCapture(e.pointerId);});
+tl.addEventListener('pointermove',e=>{if(drag)setT(tFromX(e.clientX));});
+tl.addEventListener('pointerup',()=>drag=false); tl.addEventListener('pointercancel',()=>drag=false);
+$('play').onclick=()=>{segEnd=null;if(!playing&&t>=TMAX)t=0;setPlay(!playing);};
+const SPD=[1,2,4]; $('spd').onclick=()=>{speed=SPD[(SPD.indexOf(speed)+1)%3];$('spd').textContent='Velocidad ×'+speed;};
+$('chk').onchange=e=>{showScen=e.target.checked;};
+$('bChart').onclick=()=>{showChart=!showChart;$('bChart').classList.toggle('on',showChart);};
+const pantalla=async on=>{try{if(on&&!document.fullscreenElement)await document.documentElement.requestFullscreen();else if(!on&&document.fullscreenElement)await document.exitFullscreen();}catch(_){}};
+$('fs').onclick=()=>pantalla(!document.fullscreenElement);
+document.querySelectorAll('.q').forEach(b=>b.onclick=()=>openQ(+b.dataset.q));
+$('bClose').onclick=()=>closeQ();
+const ansVisible=()=>$('ans').style.display==='block';
+function verAns(v){$('ans').style.display=v?'block':'none';$('bAns').textContent=v?'Ocultar respuesta':'Ver respuesta';}
+$('bAns').onclick=()=>verAns(!ansVisible());
+// vuelo suave de la cámara
+function volar(vista,dur=2){fly={p0:camera.position.clone(),t0:controls.target.clone(),p1:new THREE.Vector3(...vista[0]),t1:new THREE.Vector3(...vista[1]),k:0,dur};controls.enabled=false;}
+canvas.addEventListener('pointerdown',()=>{if(fly){fly=null;controls.enabled=true;}});
+const QCOL=[0x38bdf8,0xfbbf24,0x34d399,0xa78bfa,0xf87171];
+function openQ(i){if(edOn)editor(false);$('predcard').classList.add('hid');curQ=i;const q=PREG[i];
+  document.querySelectorAll('.q').forEach((b,j)=>b.classList.toggle('on',j===i));
+  $('qk').textContent='Pregunta '+(i+1)+' de 5';$('qt').textContent=q.t;$('qm').textContent=q.m;$('ans').innerHTML=q.a;verAns(false);
+  $('qrb').innerHTML=q.cmp?q.cmp.html:'';
+  $('qcard').classList.add('show');
+  showScen=!!q.scen; $('chk').checked=showScen;
+  if(q.from!==undefined){t=q.from;segEnd=q.go;setPlay(true);}else{t=q.go;segEnd=null;setPlay(false);}
+  qMark.userData.mat.color.setHex(QCOL[i]).convertSRGBToLinear();qMark.userData.mat.emissive.setHex(QCOL[i]).convertSRGBToLinear();qMark.userData.pop=0;
+  controls.autoRotate=false; volar(q.cam);
+}
+function closeQ(){if(curQ<0)return;$('predcard').classList.remove('hid');if(PREG[curQ].scen){showScen=false;$('chk').checked=false;}curQ=-1;$('qcard').classList.remove('show');document.querySelectorAll('.q').forEach(b=>b.classList.remove('on'));controls.autoRotate=!(PRED_ON&&PR);volar(PRED_ON&&PR?VISTA_P:VISTA0);}
+// avanzar y retroceder: pregunta -> respuesta -> siguiente pregunta
+function siguiente(){if(curQ<0)openQ(0);else if(!ansVisible())verAns(true);else if(curQ<PREG.length-1)openQ(curQ+1);
+  else{closeQ();showScen=false;$('chk').checked=false;t=0;segEnd=null;setPlay(true);}}
+function anterior(){if(curQ<0)return;if(ansVisible())verAns(false);else if(curQ>0){openQ(curQ-1);verAns(true);}else closeQ();}
+function exposicion(on){pres=on;document.body.classList.toggle('pres',on);$('bPres').classList.toggle('on',on);pantalla(on);
+  if(on){if(curQ>=0)closeQ();else volar(VISTA0);showScen=false;$('chk').checked=false;t=0;segEnd=null;setPlay(true);}}
+$('bPres').onclick=()=>exposicion(!pres);
+// modo rendimiento: menos resolución, sin sombras, menos plantas y sombreadores más simples
+let perf=false, perfElegido=false;
+function rendimiento(on,guardar=true){perf=on;$('bPerf').classList.toggle('on',on);skyU.uLow.value=on?1:0;
+  renderer.setPixelRatio(on?Math.min(devicePixelRatio,1)*.85:Math.min(devicePixelRatio,2));resize();
+  sun.castShadow=!on;renderer.shadowMap.needsUpdate=true;
+  const lim=on?Math.floor(nf*.4):nf;trunk.count=crown.count=lim;flores.count=on?florDe.filter(i=>i<lim).length:nfl;paja.count=on?Math.floor(np*.2):np;
+  reflOn=!on;waterMat.uniforms.uReflOn.value=on?0:1;rg.setDrawRange(0,on?RN*.8:RN*2);
+  if(guardar){perfElegido=true;$('pnote').textContent='';try{localStorage.setItem('chz-perf',on?'1':'0');}catch(_){}}}
+$('bPerf').onclick=()=>rendimiento(!perf);
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&pres){pres=false;document.body.classList.remove('pres');$('bPres').classList.remove('on');}});
+addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)){if(e.key==='Escape')e.target.blur();return;}
+  if(e.key==='Escape'&&edOn){editor(false);return;}
+  if(e.key==='d'||e.key==='D'){editor(!edOn);return;}
+  if(e.key==='p'||e.key==='P'){prediccion(!PRED_ON);return;}
+  if(e.key===' '){e.preventDefault();$('play').click();}
+  else if(e.key>='1'&&e.key<='5')openQ(+e.key-1);
+  else if(e.key==='Escape'){if(curQ>=0)closeQ();else if(pres)exposicion(false);}
+  else if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();siguiente();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();anterior();}
+  else if(e.key==='g'||e.key==='G')$('bChart').click();
+  else if(e.key==='r'||e.key==='R')rendimiento(!perf);
+  else if(e.key==='e'||e.key==='E')exposicion(!pres);});
+
+const v2=new THREE.Vector2();
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.getDrawingBufferSize(v2);reflRT.setSize(Math.max(64,Math.round(v2.x*.5)),Math.max(64,Math.round(v2.y*.5)));}
+addEventListener('resize',resize);resize();
+try{const v=localStorage.getItem('chz-perf');if(v!==null){perfElegido=true;if(v==='1')rendimiento(true,false);}}catch(_){}
+
+// ================= EDITOR DE DATOS =================
+function actualizarUmbrales(){
+  terrU.uY36.value=yDe(DZ);terrU.uY70.value=yDe(META);terrU.uAvg.value=yDe(AVG.v);
+  lb36.userData.set(fmt0(DZ)+' % · día cero');lb36.position.set(DAMX+faceX(yDe(DZ))-1,yDe(DZ)+.05,5.2);
+  lb70.userData.set(fmt0(META)+' % · meta');lb70.position.set(DAMX+faceX(yDe(META))-.6,yDe(META)+.05,-5.4);
+  lbAvg.userData.set('Promedio '+fmt(AVG.v,2)+' %');lbAvg.position.y=yDe(AVG.v)+1.6;
+  [[levelMarks[0],DZ],[levelMarks[1],META]].forEach(([m,p])=>{const y=yDe(p);m.position.set(DAMX+faceX(y)-.16,y,0);});
+  $('mkD').style.bottom=DZ+'%';$('mkD').firstChild.textContent=fmt0(DZ)+' %';$('mkM').style.bottom=META+'%';$('mkM').firstChild.textContent=fmt0(META)+' %';
+}
+actualizarUmbrales();
+// recalcula todo con los datos nuevos; si no son válidos, vuelve a los anteriores y devuelve el error
+function aplicar(cfg){const prev=CFG;
+  try{calcular(cfg);}catch(e){try{if(prev)calcular(prev);}catch(_){} return e.message||String(e);}
+  construirGrafica();construirLinea();actualizarUmbrales();
+  t=Math.min(t,TMAX);if(segEnd!==null&&segEnd>TMAX)segEnd=TMAX;
+  if(curQ>=0){$('qt').textContent=PREG[curQ].t;$('ans').innerHTML=PREG[curQ].a;$('qrb').innerHTML=PREG[curQ].cmp?PREG[curQ].cmp.html:'';}
+  if(PRED_ON&&PR)$('pcBody').innerHTML=PR.html;
+  return null;}
+let edRows=[],edTimer=0,edTramoSel='',edVal=[];
+const fISO=s=>{const x=fechaISO(s);if(isNaN(x))return s;const d=new Date(x);return `${d.getUTCDate()} ${MES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;};
+function edTramos(){const sel=$('qTramo'),cur=sel.value||edTramoSel,P=edRows.filter(r=>!r[2]&&!isNaN(fechaISO(r[0]))).slice().sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  sel.innerHTML='';for(let i=0;i<P.length-1;i++){const d=(fechaISO(P[i+1][0])-fechaISO(P[i][0]))/DAY,v=(parseFloat(P[i+1][1])-parseFloat(P[i][1]))/d,o=document.createElement('option');
+    o.value=P[i][0];o.textContent=`${fISO(P[i][0])} – ${fISO(P[i+1][0])} (${isFinite(v)?sg(v,3):'?'} %/día)`;sel.appendChild(o);}
+  if([...sel.options].some(o=>o.value===cur))sel.value=cur;}
+const ordenados=pts=>pts.map(p=>[p[0],p[1],p[2]?1:0]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+function edLlenar(cfg){edRows=ordenados(cfg.pts);const pd=cfg.pred||ORIG.pred;edTramoSel=pd.tramo;edTabla();
+  $('qIni').value=pd.ini;$('qL0').value=pd.l0;$('qFin').value=pd.fin;$('qReal').value=pd.real;edVal=pd.val||ORIG.pred.val;
+  [['pCap','cap'],['pAh','ahorro'],['pMeta','meta'],['pDz','dz'],['pIni','ini'],['pFin','fin'],['pP1','p1']].forEach(([id,k])=>$(id).value=cfg[k]);}
+function edTabla(){const tb=$('edT').tBodies[0];tb.innerHTML='';
+  edRows.forEach((r,i)=>{const tr=document.createElement('tr');if(r[2])tr.className='val';
+    tr.innerHTML=`<td>${i+1}</td><td><input type="date" aria-label="Fecha del dato ${i+1}"></td><td><input type="number" step="0.01" min="0" max="100" aria-label="Nivel del dato ${i+1}"></td><td><input type="checkbox" aria-label="Dato ${i+1} de validación"></td><td><button class="del" title="Quitar este dato" aria-label="Quitar el dato ${i+1}">✕</button></td>`;
+    const [d,n,c]=tr.querySelectorAll('input');d.value=r[0];n.value=r[1];c.checked=!!r[2];
+    d.oninput=()=>{r[0]=d.value;edTramos();edProg();};n.oninput=()=>{r[1]=n.value;edTramos();edProg();};c.onchange=()=>{r[2]=c.checked?1:0;tr.className=r[2]?'val':'';edTramos();edProg();};
+    tr.querySelector('.del').onclick=()=>{edRows.splice(i,1);edTabla();edProg();};tb.appendChild(tr);});
+  edCuenta();edTramos();}
+function edCuenta(){const np=edRows.filter(r=>!r[2]).length,nv=edRows.length-np;
+  $('edCount').innerHTML=`${np} del proyecto · ${nv} de validación`+(np>10?' · <span class="warn">la rúbrica pide máximo 10</span>':'');}
+function edCfg(){return {pts:edRows.map(r=>[r[0],r[1],r[2]]),cap:$('pCap').value,ahorro:$('pAh').value,meta:$('pMeta').value,dz:$('pDz').value,ini:$('pIni').value,fin:$('pFin').value,p1:$('pP1').value,pred:{ini:$('qIni').value,l0:$('qL0').value,fin:$('qFin').value,real:$('qReal').value,tramo:$('qTramo').value,val:edVal}};}
+function edProg(){edCuenta();clearTimeout(edTimer);edTimer=setTimeout(edAplicar,280);}
+function edAplicar(){const err=aplicar(edCfg()),m=$('edMsg');
+  if(err){m.className='bad';m.textContent=err+' La maqueta sigue con los últimos datos válidos.';}
+  else{m.className='ok';m.textContent='✓ Recalculado: las preguntas, la gráfica y la animación ya usan estos datos.';}}
+$('edAdd').onclick=()=>{const u=edRows[edRows.length-1],x=u?fechaISO(u[0]):NaN;edRows.push([isNaN(x)?'':isoDe(x+30*DAY),u?u[1]:50,0]);edTabla();edProg();
+  const ins=$('edT').tBodies[0].lastChild.querySelector('input');if(ins)ins.focus();};
+$('edReset').onclick=()=>{edLlenar(ORIG);edAplicar();};
+['pCap','pAh','pMeta','pDz','pIni','pFin','pP1','qIni','qL0','qFin','qReal'].forEach(id=>$(id).addEventListener('input',edProg));
+$('qTramo').addEventListener('change',()=>{edTramoSel=$('qTramo').value;edProg();});
+let edOn=false;
+function editor(v){edOn=v;$('editor').classList.toggle('show',v);$('bData').classList.toggle('on',v);$('predcard').classList.toggle('hid',v||curQ>=0);
+  if(v){if(curQ>=0)closeQ();edLlenar(CFG);$('edMsg').className='';$('edMsg').textContent='';}}
+$('bData').onclick=()=>editor(!edOn);
+// botón Predicción: cambia las 5 preguntas por los 5 pasos de la predicción y extiende la línea de tiempo
+function prediccion(on){if(curQ>=0)closeQ();const prev=PRED_ON;PRED_ON=on;const err=aplicar(CFG);
+  if(err){PRED_ON=prev;aplicar(CFG);$('pnote').textContent='No se pudo predecir: '+err+' ';return;}
+  $('pnote').textContent='';$('bPred').classList.toggle('on',on);$('predcard').classList.toggle('show',on);$('predcard').classList.remove('min','hid');
+  if(on&&PR){$('pcBody').innerHTML=PR.html;t=Math.max(0,PR.t0-25);segEnd=null;setPlay(true);volar(VISTA_P);controls.autoRotate=false;}else{t=Math.min(t,TMAX);if(prev&&curQ<0){volar(VISTA0);controls.autoRotate=true;}}}
+$('pcMin').onclick=()=>$('predcard').classList.toggle('min');$('pcHead').onclick=e=>{if(e.target.id!=='pcMin'&&e.target.id!=='pcOff')$('predcard').classList.remove('min');};$('pcOff').onclick=()=>prediccion(false);
+$('bPred').onclick=()=>prediccion(!PRED_ON);$('edClose').onclick=()=>editor(false);
+
+// ================= MINI GRÁFICA =================
+let miniOn=false,miniK=0,miniH=150;const vP=new THREE.Vector3();
+// qué fracción del panel de la gráfica 3D se ve en pantalla, descontando las tarjetas que la tapan
+function fraccionGrafica(){
+  if(!showChart)return 0;
+  chart.updateMatrixWorld();const W=innerWidth,H=innerHeight,hw=(GW+7)/2,hh=(GH+3.2)/2,cy=GH/2-.1;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){vP.set(-.6+a*hw,cy+b*hh,0).applyMatrix4(chart.matrixWorld).project(camera);
+    if(vP.z>1||vP.z<-1)return 0;const px=(vP.x+1)/2*W,py=(1-vP.y)/2*H;x0=Math.min(x0,px);x1=Math.max(x1,px);y0=Math.min(y0,py);y1=Math.max(y1,py);}
+  const A=(x1-x0)*(y1-y0);if(A<1||y1-y0<80)return 0;
+  const ov=(ax0,ay0,ax1,ay1)=>Math.max(0,Math.min(x1,ax1)-Math.max(x0,ax0))*Math.max(0,Math.min(y1,ay1)-Math.max(y0,ay0));
+  let vis=ov(0,0,W,H);
+  ['qcard','predcard','editor','info','bar','gaugeWrap'].forEach(id=>{const e=$(id);if(!e||!e.getClientRects().length)return;
+    if(id==='qcard'&&!e.classList.contains('show'))return;const r=e.getBoundingClientRect();vis-=ov(r.left,r.top,r.right,r.bottom);});
+  return Math.max(0,vis)/A;}
+function dibujarMini(lv,lvS,isAvg){
+  const cv=$('miniC'),dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const L=30,R=6,T=6,B=16,X=x=>L+x/TMAX*(w-L-R),Y=p=>T+(1-Math.max(0,Math.min(100,p))/100)*(h-T-B);
+  const pred=PRED_ON&&PR, tEnd=pred?PR.t0:TMAX;
+  g.font='500 9.5px Inter,system-ui,sans-serif';g.textBaseline='middle';
+  // bandas: racionamiento y predicción
+  g.fillStyle='rgba(248,113,113,.13)';g.fillRect(X(T_INI),T,X(T_END_RAT)-X(T_INI),h-T-B);
+  if(pred){g.fillStyle='rgba(232,121,249,.13)';g.fillRect(X(PR.t0),T,X(PR.t1)-X(PR.t0),h-T-B);}
+  // ejes y umbrales
+  g.strokeStyle='rgba(207,230,245,.35)';g.lineWidth=1;g.beginPath();g.moveTo(L,Y(0)+.5);g.lineTo(w-R,Y(0)+.5);g.stroke();
+  [[DZ,'#f87171'],[META,'#34d399']].forEach(([p,c])=>{g.strokeStyle=c;g.globalAlpha=.75;g.setLineDash([3,3]);g.beginPath();g.moveTo(L,Y(p));g.lineTo(w-R,Y(p));g.stroke();g.setLineDash([]);g.globalAlpha=1;
+    g.fillStyle=c;g.textAlign='right';g.fillText(fmt0(p)+' %',L-4,Y(p));});
+  // curva: completa tenue y recorrida brillante
+  const curva=(f,a,b,col,lw,al)=>{if(b<=a)return;g.strokeStyle=col;g.lineWidth=lw;g.globalAlpha=al;g.beginPath();const st=Math.max(1,Math.round((b-a)/240));
+    for(let d=a;d<=b;d+=st)d===a?g.moveTo(X(d),Y(f(d))):g.lineTo(X(d),Y(f(d)));g.lineTo(X(b),Y(f(b)));g.stroke();g.globalAlpha=1;};
+  curva(nivelReal,0,tEnd,'#5fd3ff',1.2,.35);curva(nivelReal,0,Math.min(t,tEnd),'#5fd3ff',2,1);
+  if(pred){curva(nivelReal,PR.t0,PR.t1,'#e879f9',1.2,.35);curva(nivelReal,PR.t0,Math.min(t,PR.t1),'#e879f9',2,1);}
+  if(showScen){curva(nivelSin,T_INI,Math.min(t,TMAX),'#fb923c',1.6,1);}
+  if(isAvg){g.strokeStyle='#a78bfa';g.lineWidth=1.5;g.beginPath();g.moveTo(X(AVG.a),Y(AVG.v));g.lineTo(X(AVG.b),Y(AVG.v));g.stroke();}
+  // datos: blancos del proyecto, amarillos de validación o reportes reales
+  PTS.forEach(p=>{g.fillStyle=p[2]?'#ffd58a':'#ffffff';g.globalAlpha=p[0]<=t+.5?1:.4;g.beginPath();g.arc(X(p[0]),Y(p[1]),p[0]<=t+.5?2.2:1.6,0,7);g.fill();});g.globalAlpha=1;
+  if(pred){g.strokeStyle='#ffd58a';g.lineWidth=1.4;g.beginPath();g.arc(X(PR.t1),Y(PR.real),3.6,0,7);g.stroke();}
+  // cursor de tiempo
+  g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=1;g.beginPath();g.moveTo(X(t)+.5,T);g.lineTo(X(t)+.5,h-B);g.stroke();
+  const pt=pred&&t>PR.t0;g.fillStyle=pt?'#e879f9':'#38bdf8';g.beginPath();g.arc(X(t),Y(lv),3.4,0,7);g.fill();
+  if(showScen){g.fillStyle='#fb923c';g.beginPath();g.arc(X(t),Y(lvS),3,0,7);g.fill();}
+  // fechas extremas
+  g.fillStyle='rgba(157,179,196,.95)';const mesA=x=>MES[mesN(x)]+' '+String(anio(x)).slice(2);
+  g.textAlign='left';g.fillText(mesA(0),L,h-B+9);g.textAlign='right';g.fillText(mesA(TMAX),w-R,h-B+9);
+}
+
+// ================= BUCLE =================
+let tPrev=performance.now(); const dtReal=()=>{const n=performance.now(),x=(n-tPrev)/1000;tPrev=n;return x;};
+const clock=new THREE.Clock(); let shownY=yDe(PTS[0][1]), rainI=0, lastTag='', lastSin='', lastVel='', lastReal='', fN=-1, fT=0;
+const v1=new THREE.Vector3(), cTop=new THREE.Color(), cHor=new THREE.Color();
+function frame(){
+  const dt=Math.min(clock.getDelta(),.05), T=clock.elapsedTime; uTime.value=T; skyU.uTime.value=T;
+  // si en los primeros segundos va a menos de 24 cuadros por segundo, activa el modo rendimiento solo
+  if(!perfElegido&&!perf&&T>2){if(fN<0){fN=0;dtReal();}else{fN++;fT+=dtReal();}if(fT>4){if(fN/fT<24){rendimiento(true,false);$('pnote').innerHTML='Modo rendimiento activado automáticamente (tecla R).<br>';}perfElegido=true;}}
+  if(playing&&!drag){t+=dt*28*speed; // ~28 días por segundo
+    if(segEnd!==null&&t>=segEnd){t=segEnd;segEnd=null;setPlay(false);}
+    if(t>=TMAX){t=TMAX;setPlay(false);}}
+  const isVel=curQ>=0&&!!PREG[curQ].vel;
+  const lvR=nivelReal(t), lvS=nivelSin(t), isAvg=curQ>=0&&!!PREG[curQ].avg; let rate=isVel?tasaP(t):tasa(t);
+  // en P1 y P2 el agua muestra lo que calculó el modelo; el nivel real queda como referencia
+  const qC=curQ>=0?PREG[curQ].cmp:null, enMod=!!(qC&&qC.f&&!(PRED_ON&&PR&&t>PR.t0)&&t>=qC.from-.5&&t<=qC.to+.5);
+  const lv=enMod?qC.f(Math.min(Math.max(t,qC.from),qC.to)):lvR, nd=enMod?2:1;
+  if(enMod&&qC.to-qC.from>1){const a=Math.max(qC.from,t-.5),b=Math.min(qC.to,t+.5);if(b>a)rate=(qC.f(b)-qC.f(a))/(b-a);}
+  // cámara
+  if(fly){fly.k=Math.min(1,fly.k+dt/fly.dur);const k=fly.k,e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+    camera.position.lerpVectors(fly.p0,fly.p1,e);camera.position.y+=Math.sin(Math.PI*e)*5;controls.target.lerpVectors(fly.t0,fly.t1,e);
+    if(k>=1){fly=null;controls.enabled=true;}}
+  // agua
+  const ty=yDe(lv); shownY+=(ty-shownY)*Math.min(1,dt*6); water.position.y=shownY; terrU.uWater.value=Math.min(shownY,showScen?yDe(lvS):shownY);
+  const qR=curQ>=0&&PRED_ON&&PR?PREG[curQ]:null, isRealP=!!qR&&qR.realV!=null, isPred=PRED_ON&&!!PR&&t>PR.t0;
+  const isReal=isRealP||enMod, realV=enMod?lvR:isRealP?qR.realV:0, realLbl=enMod?'Real: '+fmt(lvR,2)+' %':isRealP?qR.realLbl:'';
+  ghost.visible=isAvg||(isReal&&Math.abs(lv-realV)>.6); ghost.position.y=yDe(isReal?realV:AVG.v); terrU.uAvgOn.value=isAvg?1:0; lbAvg.visible=isAvg;
+  lbReal.visible=isReal; if(isReal){if(lastReal!==realLbl){lbReal.userData.set(realLbl);lastReal=realLbl;}lbReal.position.set(DAMX-9,yDe(realV)+.9,3.4);}
+  scenWater.visible=showScen; scenWater.position.y=yDe(lvS);
+  waterMat.uniforms.uOp.value+=((showScen?.22:1)-waterMat.uniforms.uOp.value)*Math.min(1,dt*4);
+  const ts='Sin racionamiento: '+fmt(lvS)+' %'; if(showScen&&ts!==lastSin){lbSin.userData.set(ts);lastSin=ts;}
+  lbSin.visible=showScen; lbSin.position.set(DAMX-9,yDe(lvS)+1.1,-3.2);
+  // clima según la velocidad de llenado (derivada)
+  const intens=Math.max(0,Math.min(1,(rate-.05)/.4)); rainI+=(intens-rainI)*Math.min(1,dt*2);
+  rain.material.opacity=rainI*.55; rain.visible=rainI>.01;
+  if(rain.visible){for(let i=0;i<RN;i++){let y=rbase[i*3+1]-dt*26;if(y<-7)y=24;rbase[i*3+1]=y;const x=rbase[i*3],z=rbase[i*3+2],j=i*6;rp[j]=x;rp[j+1]=y;rp[j+2]=z;rp[j+3]=x+.1;rp[j+4]=y-.75;rp[j+5]=z;}rg.attributes.position.needsUpdate=true;}
+  cTop.copy(C_ZEN).lerp(C_ZEN_R,rainI*.9); cHor.copy(C_HOR).lerp(C_HOR_R,rainI*.9); skyU.uTop.value.copy(cTop); skyU.uHor.value.copy(cHor); scene.fog.color.copy(cHor);
+  U_COM.uWind.value=.1+.16*rainI; sun.intensity=2.3-1.5*rainI; hemi.intensity=.75-.1*rainI; skyU.uRain.value=rainI; terrU.uCloud.value=1-.6*rainI;
+  [waterMat,scenMat].forEach(m=>m.uniforms.uSunI.value=1-.8*rainI);
+  // etiqueta del nivel sobre el agua, junto a la presa
+  const tg=fmt(lv,nd)+' %'; if(tg!==lastTag){lbNivel.userData.set(tg);lastTag=tg;}
+  lbNivel.position.set(DAMX-6,shownY+2,-1.5); boya.position.set(DAMX-6,shownY+.75,-1.5);
+  lbVel.visible=isVel; if(isVel){const tv=(rate>.01?'↑ ':rate<-.01?'↓ ':'')+((rate*K>=0?'+':'−')+fmt(Math.abs(rate*K)))+' m³/s'; if(tv!==lastVel){lbVel.userData.set(tv);lastVel=tv;} lbVel.position.set(-6,shownY+3.2,1);}
+  // gráfica 3D: se coloca detrás del punto de mira y gira hacia la cámara
+  chart.visible=showChart;
+  chartP=PRED_ON&&!!PR&&curQ<0; GCc.lerp(chartP?GCP:GC,Math.min(1,dt*3)); chS+=((chartP?.44:1)-chS)*Math.min(1,dt*3); chart.scale.setScalar(chS);
+  if(showChart){v1.set(GCc.x-camera.position.x,0,GCc.z-camera.position.z).normalize();
+    chart.position.set(GCc.x+v1.x*9*chS,GCc.y,GCc.z+v1.z*9*chS);
+    chart.rotation.y=Math.atan2(camera.position.x-chart.position.x,camera.position.z-chart.position.z);
+    const n=Math.floor(t)*6; gFill.geometry.setDrawRange(0,n); gLine.geometry.setDrawRange(0,n);
+    gScen.visible=gDotS.visible=showScen; gScen.geometry.setDrawRange(0,n); gAvg.visible=isAvg;
+    if(gPred)gPred.geometry.setDrawRange(0,Math.max(0,Math.floor(t)-PR.t0)*6);
+    gCur.position.set(gx(t),GH/2,.04); gDot.position.set(gx(t),gy(lv),.07); gDotS.position.set(gx(t),gy(lvS),.07);
+    gPts.forEach((m,i)=>{const on=PTS[i][0]<=t+.5;m.scale.setScalar(on?1:.55);m.material.opacity=on?1:.45;});}
+  // mini gráfica: aparece cuando la gráfica 3D no se ve bien
+  miniK+=dt;if(miniK>.15){miniK=0;const f=fraccionGrafica();if(!miniOn&&f<.6)miniOn=true;else if(miniOn&&f>.75)miniOn=false;
+    {const mi=$('mini'),vis=mi.offsetHeight>0;if(vis)miniH=mi.offsetHeight+12;const fondo=$('info').getBoundingClientRect().bottom-(vis?miniH:0);mi.classList.toggle('apretado',fondo+miniH>$('bar').getBoundingClientRect().top-10);}
+    $('mini').classList.toggle('show',miniOn);$('miniWhy').textContent=!showChart?'gráfica 3D oculta (G)':'gráfica 3D fuera de vista';}
+  if(miniOn&&!$('mini').classList.contains('apretado'))dibujarMini(lv,lvS,isAvg);
+  // signo ?
+  if(curQ>=0){qMark.userData.pop=Math.min(1,(qMark.userData.pop||0)+dt*1.5);const p=qMark.userData.pop,e=1-Math.pow(1-p,3);
+    qMark.scale.setScalar(1.5*e);qMark.position.y=shownY+4.6+Math.sin(T*1.5)*.25;qMark.rotation.y+=dt*(1+8*(1-p));}
+  else qMark.scale.multiplyScalar(Math.pow(.02,dt));
+  // UI
+  const q=rate*K, velTxt=(q>=0?'+':'−')+fmt(Math.abs(q));
+  document.body.classList.toggle('scen',showScen&&!isVel); document.body.classList.toggle('vel',isVel); document.body.classList.toggle('pred',isPred&&!isVel&&!showScen);
+  const mq=enMod&&!isVel&&!showScen; document.body.classList.toggle('modq',mq);
+  $('lvlcap').textContent=isVel?(isPred?'Velocidad predicha (derivada)':'Velocidad de llenado (derivada)'):mq?'Según el modelo ('+qC.cap+')':isPred&&!showScen?'Predicción del modelo (Euler explícito)':'Sin racionamiento (simulado)';
+  $('date').textContent=fecha(t);
+  if(isVel){$('lvl').innerHTML=velTxt+'<small> m³/s</small>';$('lvl').style.color=q>.3?'#6ee7b7':q<-.3?'#fca5a5':'';}
+  else{$('lvl').innerHTML=fmt(showScen?lvS:lv,showScen?1:nd)+'<small> %</small>';$('lvl').style.color='';} $('vol').textContent=fmt((showScen?lvS:lv)/100*CAP,0)+' Mm³';
+  const st=$('status');
+  const sfx=isPred?' (predicho)':'';
+  if(rate>.01){st.textContent=`Llenándose ↑  +${fmt(q)} m³/s netos${sfx}`;st.style.background='rgba(52,211,153,.15)';st.style.color='#a7f3d0';}
+  else if(rate<-.01){st.textContent=`Vaciándose ↓  ${fmt(q)} m³/s netos${sfx}`;st.style.background='rgba(248,113,113,.15)';st.style.color='#fecaca';}
+  else {st.textContent='Estable';st.style.background='rgba(255,255,255,.06)';st.style.color='var(--muted)';}
+  let ev='';EVENTOS.forEach(([et,tx])=>{if(Math.abs(t-et)<7)ev='● '+tx;}); if(lv<DZ&&t>T_ARRIBA)ev='⚠ Por debajo del día cero ('+fmt0(DZ)+' %)'; if(showScen&&lvS<=DZ+.05&&t>S_ARRIBA)ev='⚠ Sin racionamiento: día cero ('+fmt0(DZ)+' %)'; $('event').textContent=ev;
+  $('scen').style.display=(showScen||isVel||isPred||mq)?'block':'none'; const ur=isPred?PR.RV.filter(r=>r[0]<=t+.5).at(-1):null;
+  $('scl').textContent=isVel?'Nivel del embalse:':mq?'Nivel real (datos CAR):':isPred&&!showScen?'Último reporte real ('+fcorta(ur[0])+'):':'Nivel real, con racionamiento:'; $('scv').textContent=(mq?fmt(lvR,2):isPred&&!isVel&&!showScen?fmt(ur[1],2):fmt(lv))+' %';
+  // recuadro con la respuesta del modelo y su margen de error, cuando la simulación llega a la respuesta
+  const enRes=!!(qC&&qC.html)&&!playing&&segEnd===null&&Math.abs(t-PREG[curQ].go)<1;
+  $('qres').classList.toggle('show',enRes); document.body.classList.toggle('qres',enRes);
+  if(PRED_ON&&PR)document.querySelectorAll('#pcBody tr[data-k]').forEach(r=>r.classList.toggle('now',Math.abs(t-PR.rows[+r.dataset.k])<4));
+  $('gfill').style.height=Math.min(100,lv)+'%'; $('gscen').style.display=showScen?'block':'none'; $('gscen').style.bottom=Math.max(0,lvS)+'%';
+  $('prog').style.width=(t/TMAX*100)+'%'; $('knob').style.left=(t/TMAX*100)+'%';
+  controls.update();
+  if(reflOn&&water.visible&&waterMat.uniforms.uOp.value>.05){const h=water.position.y;
+    mCam.position.set(camera.position.x,2*h-camera.position.y,camera.position.z);
+    mTgt.set(controls.target.x,2*h-controls.target.y,controls.target.z);mCam.up.set(0,1,0);mCam.lookAt(mTgt);
+    mCam.projectionMatrix.copy(camera.projectionMatrix);mCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);mCam.updateMatrixWorld();
+    texM.set(.5,0,0,.5,0,.5,0,.5,0,0,.5,.5,0,0,0,1).multiply(mCam.projectionMatrix).multiply(mCam.matrixWorldInverse);
+    clipPl.constant=-(h-.03);
+    const oc=[water,scenWater,ghost,chart,rain,paja,qMark,boya,...LABELS],prev=oc.map(o=>o.visible);oc.forEach(o=>o.visible=false);
+    const tm=renderer.toneMapping;renderer.toneMapping=THREE.NoToneMapping;renderer.clippingPlanes=[clipPl];
+    renderer.setRenderTarget(reflRT);renderer.clear();renderer.render(scene,mCam);renderer.setRenderTarget(null);
+    renderer.clippingPlanes=[];renderer.toneMapping=tm;oc.forEach((o,i)=>o.visible=prev[i]);}
+  renderer.render(scene,camera); requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
